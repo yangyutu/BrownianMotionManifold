@@ -23,20 +23,20 @@ public:
     };
     
     struct particle {
-        double r[3],F[3];
-        Eigen::Vector2d local_q;
+        Eigen::Vector3d r, F;
+        Eigen::Vector2d local_r;
         int meshFaceIdx;
         
         particle(){}
         
         particle(double x, double y, double z, int idx){
-            r[0]=x;r[1]=y;r[2]=z;
+            r(0)=x;r(1)=y;r(2)=z;
             meshFaceIdx = idx;
         }
         
         particle(double q1,double q2, int idx){
-            local_q(0) = q1;
-            local_q(1) = q2;
+            local_r(0) = q1;
+            local_r(1) = q2;
             meshFaceIdx = idx;
         }
     };
@@ -60,7 +60,7 @@ public:
     std::shared_ptr<Mesh> mesh;
 private:
     void calForces();
-    void calForcesHelper(int i, int j, double F[3]);
+    void calForcesHelper(int i, int j, Eigen::Vector3d F);
     int dimP;
     static const double kb, T, vis;
     int numP, numObstacles;

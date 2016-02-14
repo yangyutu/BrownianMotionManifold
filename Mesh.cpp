@@ -45,7 +45,7 @@ void Mesh::initialize() {
             idx2 = F(i, (j + 1) % 3);
             mat.col(j) = (V.row(idx2) - V.row(idx1)).transpose(); 
         }
-        this->bases.push_back(V.row(0).transpose());
+        this->bases.push_back(V.row(F(i,0)).transpose());
         this->Face_Edges.push_back(mat);
 #ifdef DEBUG
         std::cout << "face: " << i << std::endl;
@@ -74,8 +74,8 @@ void Mesh::initialize() {
         this->Jacobian_g2l.push_back(JInv);
 
         Eigen::Vector3d base = V.row(F(i, 0)).transpose().eval();
-        this->M_l2g.push_back(CoordOp_l2g(base, J));
-        this->M_g2l.push_back(CoordOp_g2l(base, JInv));
+        this->coord_l2g.push_back(CoordOp_l2g(base, J));
+        this->coord_g2l.push_back(CoordOp_g2l(base, JInv));
     }
     
  
@@ -134,8 +134,12 @@ void Mesh::initialize() {
 }
 
 bool Mesh::inTriangle(Eigen::Vector2d q){
-    if (q(0) >=0 && q(0) <= 1&&q(1) >=0 && q(1) <= 1 ){
+    if (q(0) >=0 && q(0) <= 1&&q(1) >=0 && q(1) <= 1 && (q(0)+q(1)) <=1 ){
         return true;
     }
+//        if (abs(q(0)) >=tol && abs(q(0)-1.0) >= tol && abs(q(1)) <=tol
+//            && abs(q(1)-1) <= tol && abs(q(0)+q(1)-1) <=tol ){
+//        return true;
+//    }
     return false;
 }

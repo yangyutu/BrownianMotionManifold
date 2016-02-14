@@ -75,8 +75,8 @@ struct Mesh {
 
 
     // each face should have its transformation matrix between local chart of R^3
-    std::vector<CoordOp_g2l> M_g2l;
-    std::vector<CoordOp_l2g> M_l2g;
+    std::vector<CoordOp_g2l> coord_g2l;
+    std::vector<CoordOp_l2g> coord_l2g;
     
     std::vector<std::vector<CoordOp_l2l>> localtransform_p2p;
     

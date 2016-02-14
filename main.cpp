@@ -20,8 +20,8 @@ void testModel();
 int main(int argc, char *argv[])
 {
 //    testIO();
-    testMyMesh();
-//    testModel();
+//    testMyMesh();
+    testModel();
     return 0;
 }
 
@@ -29,12 +29,12 @@ void testModel(){
     readParameter();
     Model m;
     m.mesh = std::make_shared<Mesh>();
-    m.mesh->readMeshFile("shared/cube.off");
+    m.mesh->readMeshFile("shared/cube_dense.off");
     m.mesh->initialize();
     m.createInitialState();
     
-    for (int i = 0; i < 100; i++){
-        m.run(100);    
+    for (int i = 0; i < parameter.numStep; i++){
+        m.run();    
     }
 
 }
@@ -61,7 +61,7 @@ void testIO() {
     Eigen::VectorXi EMap;
     std::vector<std::vector<int>> uE2E;
     // Load a mesh in OFF format
-    igl::readOFF("shared/2triangles.off", V, F);
+    igl::readOFF("shared/cube_dense.off", V, F);
 
     // Print the vertices and faces matrices
     std::cout << "Vertices: " << std::endl << V << std::endl;
