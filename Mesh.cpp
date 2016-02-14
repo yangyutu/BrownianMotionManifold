@@ -82,10 +82,11 @@ void Mesh::initialize() {
     //  construct neighboring faces for each faces in the order    
     igl::triangle_triangle_adjacency(F, TT, TTi);
     //  now calculating the rotation matrix between faces
+#if 1
     for (int i = 0; i < numF; i++){
         RotMat.push_back(std::vector<Eigen::Matrix3d>(3,Eigen::MatrixXd::Identity(3,3)));
-//        this->localtransform_v2v.push_back(std::vector<Eigen::Matrix2d>(3,Eigen::Matrix2d()));
-//        this->localtransform_p2p.push_back(std::vector<CoordOp_l2l>(3,CoordOp_l2l()));
+        this->localtransform_v2v.push_back(std::vector<Eigen::Matrix2d>(3,Eigen::Matrix2d()));
+        this->localtransform_p2p.push_back(std::vector<CoordOp_l2l>(3,CoordOp_l2l()));
         
         for (int j = 0 ; j < 3; j++){
             if (TT(i,j) >= 0){
@@ -98,10 +99,9 @@ void Mesh::initialize() {
    
                 director /= director.norm();
                 
-               
-                this->RotMat[i][TT(i,j)] = Eigen::AngleAxisd(angle,director);
+                this->RotMat[i][j] = Eigen::AngleAxisd(angle,director);
 #ifdef DEBUG                
-                double diff = (RotMat[i][TT(i,j)]*normal1 - normal2).norm();
+                double diff = (RotMat[i][j]*normal1 - normal2).norm();
                 if (diff > 1e-6){
 
                     
@@ -114,23 +114,23 @@ void Mesh::initialize() {
                     mat << normal1, normal2, director;                     
                     std::cout << mat.determinant() << std::endl;
                     std::cout << angle << std::endl;
-                    std::cout << RotMat[i][TT(i,j)] << std::endl;
+                    std::cout << RotMat[i][j] << std::endl;
 
                     
                 }
 #endif
-//                this->localtransform_v2v[i][TT(i,j)] = this->Jacobian_g2l[TT(i,j)]*
-//                        RotMat[i][TT(i,j)]*this->Jacobian_l2g[i];
+                this->localtransform_v2v[i][j] = this->Jacobian_g2l[TT(i,j)]*
+                        RotMat[i][j]*this->Jacobian_l2g[i];
               
-//                this->localtransform_p2p[i][TT(i,j)] = CoordOp_l2l(bases[i],bases[TT(i,j)],
-//                        this->Jacobian_l2g[i],this->Jacobian_g2l[TT(i,j)]);
+                this->localtransform_p2p[i][j] = CoordOp_l2l(bases[i],bases[TT(i,j)],
+                        this->Jacobian_l2g[i],this->Jacobian_g2l[TT(i,j)]);
                 
             }
         }
     }
  
     
- 
+#endif 
 }
 
 bool Mesh::inTriangle(Eigen::Vector2d q){
