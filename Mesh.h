@@ -69,6 +69,7 @@ struct Mesh {
     // face normals
     Eigen::MatrixXd F_normals;
     // store face edge information
+    Eigen::VectorXd dblA;
 
     std::vector<Eigen::Matrix3d> Face_Edges;
 

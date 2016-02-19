@@ -20,7 +20,7 @@ Model::Model(){
     dt_ = parameter.dt;
     diffusivity_t = parameter.diffu_t;// this corresponds the diffusivity of 1um particle
     diffusivity_t /= pow(radius,2); // diffusivity will be in unit a^2/s
-    Bpp = parameter.Bpp * kb * T * 1e9; //2.29 is Bpp/a/kT
+    Bpp = parameter.Bpp * 1e9 * radius; //2.29 is Bpp/a/kT, now Bpp has unit of kT
     Kappa = parameter.kappa; // here is kappa*radius
     Os_pressure = parameter.Os_pressure * kb * T * 1e9;
     L_dep = parameter.L_dep; // 0.2 of radius size, i.e. 200 nm
@@ -50,10 +50,12 @@ void Model::run() {
             
             Eigen::Vector3d velocity;
             for (int j = 0; j < 3; j++){
-//                velocity(j) = mobility * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * (*rand_normal)(rand_generator);
+//               velocity(j) = sqrt(2.0 * diffusivity_t/dt_) * (*rand_normal)(rand_generator);
+
+                velocity(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * (*rand_normal)(rand_generator);
 //                velocity(j) = 50.0 + 10*j;
             }
-            velocity << 50,50,-50;
+//            velocity << 50,50,-50;
             
             
             this->moveOnMesh(i,velocity);
@@ -68,7 +70,7 @@ void Model::run(int steps){
     }
 }
 
-void Model::moveOnMesh(int p_idx, Eigen::Vector3d velocity){
+void Model::moveOnMesh(int p_idx, const Eigen::Vector3d &velocity){
     // first calculate the tangent velocity
     int meshIdx = this->particles[p_idx]->meshFaceIdx;
     Eigen::Vector3d normal = mesh->F_normals.row(meshIdx).transpose();
@@ -77,8 +79,46 @@ void Model::moveOnMesh(int p_idx, Eigen::Vector3d velocity){
     Eigen::Vector2d localV = mesh->Jacobian_g2l[meshIdx]*tangentV;
     Eigen::Vector2d localQ_new;
     double t_residual = this->dt_;
-    
-    
+
+    bool finishWrapFlag = false;
+    double tol = 1e-8;
+    int hitFlag = -1;
+    int hitFlag_prev = -1;
+    localQ_new = particles[p_idx]->local_r + localV*t_residual;
+    int count = 0;
+    while (!finishWrapFlag){  
+        meshIdx = particles[p_idx]->meshFaceIdx;
+        if (localQ_new(0) < 0.0 && hitFlag_prev!=2){
+            hitFlag = 2;
+            hitFlag_prev = mesh->TTi(meshIdx,2);
+//            std::cout << mesh->TTi.row(meshIdx) << std::endl;
+        } else if (localQ_new(1) < 0.0 && hitFlag_prev!=0) {
+            hitFlag = 0;
+            hitFlag_prev = mesh->TTi(meshIdx,0);
+ //           std::cout << mesh->TTi.row(meshIdx) << std::endl;
+        } else if ((localQ_new(0) + localQ_new(1) > 1.0) && (hitFlag_prev!=1)){
+            hitFlag = 1;
+            hitFlag_prev = mesh->TTi(meshIdx,1);
+//            std::cout << mesh->TTi << std::endl;
+            
+//            std::cout << mesh->TT << std::endl;
+        } else {
+            finishWrapFlag = true;
+            particles[p_idx]->local_r = localQ_new;
+            break;
+        }
+        count++;
+        
+        if (count >= 10){
+            std::cerr << "inner loop interaction too long  " << count << "\t" << localV << std::endl;
+        }
+        localQ_new = mesh->localtransform_p2p[meshIdx][hitFlag](localQ_new);
+        particles[p_idx]->meshFaceIdx = mesh->TT(meshIdx,hitFlag);
+        
+    }    
+    particles[p_idx]->r = mesh->coord_l2g[particles[p_idx]->meshFaceIdx](particles[p_idx]->local_r);;
+}    
+/*    
     while(t_residual/dt_ > 1e-2){
         localQ_new = particles[p_idx]->local_r + localV*t_residual;
         if (mesh->inTriangle(localQ_new)){
@@ -151,16 +191,16 @@ void Model::moveOnMesh(int p_idx, Eigen::Vector3d velocity){
             particles[p_idx]->meshFaceIdx = mesh->TT(meshIdx,min_idx);
         }   
     }
-}
+#endif 
+*/    
 
-
-void Model::calForcesHelper(int i, int j, Eigen::Vector3d F) {
+void Model::calForcesHelper(int i, int j, Eigen::Vector3d &F) {
     double dist;
     Eigen::Vector3d r;
 
     dist = 0.0;
     F.fill(0);
-    r = particles[j]->r - particles[j]->r;
+    r = particles[j]->r - particles[i]->r;
     dist = r.norm();
             
     if (dist < 2.0) {
@@ -168,10 +208,12 @@ void Model::calForcesHelper(int i, int j, Eigen::Vector3d F) {
         dist = 2.06;
     }
     if (dist < cutoff) {
-//        double Fpp = LJ * (-12.0 * pow((rm / dist), 12) / dist + 12.0 * pow((rm / dist), 7) / dist);
+        // the unit of force is kg m s^-2
+        // kappa here is kappa*a a non-dimensional number
+        
         double Fpp = -4.0/3.0*
         Os_pressure*M_PI*(-3.0/4.0*pow(combinedSize,2.0)+3.0*dist*dist/16.0*radius_nm*radius_nm);
-        Fpp += -Bpp * Kappa * exp(-Kappa*(dist-2.0));
+        Fpp = -Bpp * Kappa * exp(-Kappa*(dist-2.0));
 //        Fpp += -9e-13 * exp(-kappa* (dist - 2.0));
         F = Fpp*r/dist;
     }
@@ -249,8 +291,45 @@ void Model::readxyz(const std::string filename) {
         particles[i]->r = mesh->coord_l2g[particles[i]->meshFaceIdx](particles[i]->local_r);        
     }
     
-    
-
     is.close();
 }
 
+void Model::MCRelaxation(){
+    
+    bool notFinish = true;
+    
+    while (notFinish){
+
+    for (int i = 0; i < numP; i++){
+        Eigen::Vector3d velocity;
+        velocity.setRandom(3,1);
+        velocity *= 0.01;
+        int oldMeshIdx = particles[i]->meshFaceIdx;
+        Eigen::Vector2d localQ_old = particles[i]->local_r;
+        this->moveOnMesh(i,velocity);
+        
+        bool overlap = this->checkCloseness(i,2.5);
+        notFinish = overlap;
+        if (overlap){
+            particles[i]->meshFaceIdx= oldMeshIdx;
+            particles[i]->local_r = localQ_old;
+        
+        }
+    }
+    }
+    std::cout << "MC relaxation finish!" << std::endl;
+}
+
+bool Model::checkCloseness(int p_idx, double thresh){
+    for (int i = 0; i < numP; i++){
+        if (i != p_idx){
+            Eigen::Vector3d dist;
+            dist = particles[p_idx]->r - particles[i]->r;
+            if (dist.norm() < thresh){
+                return true;
+            }
+        
+        }
+    }
+    return false;
+}

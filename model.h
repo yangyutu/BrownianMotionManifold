@@ -48,7 +48,9 @@ public:
     ~Model() {trajOs.close();
     opOs.close(); osTarget.close();
     }
-    void moveOnMesh(int p_idx, Eigen::Vector3d velocity);
+    void moveOnMesh(int p_idx, const Eigen::Vector3d &velocity);
+    void MCRelaxation();
+    bool checkCloseness(int p_idx,double thresh);
     void run();
     void run(int steps);
     void createInitialState();
@@ -60,7 +62,7 @@ public:
     std::shared_ptr<Mesh> mesh;
 private:
     void calForces();
-    void calForcesHelper(int i, int j, Eigen::Vector3d F);
+    void calForcesHelper(int i, int j, Eigen::Vector3d &F);
     int dimP;
     static const double kb, T, vis;
     int numP, numObstacles;

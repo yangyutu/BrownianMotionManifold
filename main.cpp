@@ -11,27 +11,41 @@
 #include "Mesh.h"
 #include "common.h"
 #include "model.h"
-
+#include "TransportPDESolver.h"
 Parameter parameter;
 void readParameter();
 void testIO();
 void testMyMesh();
 void testModel();
+void testPDESolver();
 int main(int argc, char *argv[])
 {
 //    testIO();
 //    testMyMesh();
+//    testPDESolver();
     testModel();
     return 0;
+}
+
+void testPDESolver(){
+    TransportPDESolver solver;
+    solver.mesh = std::make_shared<Mesh>();
+    solver.mesh->readMeshFile("shared/bumpy.off");
+//    solver.mesh->initialize();
+    
+    solver.initialize();
+    solver.solve();
+    
 }
 
 void testModel(){
     readParameter();
     Model m;
     m.mesh = std::make_shared<Mesh>();
-    m.mesh->readMeshFile("shared/cube_dense.off");
+    m.mesh->readMeshFile("shared/sphere_scale30_dense.off");
     m.mesh->initialize();
     m.createInitialState();
+    m.MCRelaxation();
     
     for (int i = 0; i < parameter.numStep; i++){
         m.run();    

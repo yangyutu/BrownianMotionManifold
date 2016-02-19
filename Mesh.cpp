@@ -5,6 +5,7 @@
 #include <igl/writeOBJ.h>
 #include <igl/adjacency_list.h>
 #include "igl/unique_edge_map.h"
+#include "igl/doublearea.h"
 #include <iostream>
 #include "igl/all_edges.h"
 #include "igl/edge_flaps.h"
@@ -18,24 +19,29 @@ void Mesh::readMeshFile(std::string filename) {
     igl::readOFF(filename, V, F);
     numF = F.rows();
     numV = V.rows();
-#ifdef DEBUG
+    igl::doublearea(V,F,dblA);
+    std::cout << "average double area " << dblA.mean() << std::endl;
+#ifdef DEBUG2
         std::cout << "vertices: " << V << std::endl;
-        std::cout << "faces: " << F << std::endl; 
+        std::cout << "faces: " << F << std::endl;
+        
 #endif    
     
 }
 
 void Mesh::initialize() {
+    
+    
     // calculating normals per face
     igl::per_face_normals(V,F,F_normals);
-#ifdef DEBUG
+#ifdef DEBUG2
     
         std::cout << "F_normals : " << std::endl;
     for (int i = 0; i < numF; i++){
         std::cout << F_normals.row(i) << std::endl;
     }
 #endif      
-    
+       
     // self build face edges
     for (int i = 0; i < F.rows(); i++) {
         Eigen::Matrix3d mat;
@@ -45,9 +51,10 @@ void Mesh::initialize() {
             idx2 = F(i, (j + 1) % 3);
             mat.col(j) = (V.row(idx2) - V.row(idx1)).transpose(); 
         }
+
         this->bases.push_back(V.row(F(i,0)).transpose());
         this->Face_Edges.push_back(mat);
-#ifdef DEBUG
+#ifdef DEBUG2
         std::cout << "face: " << i << std::endl;
         std::cout << "edges: " << Face_Edges[i] << std::endl; 
 #endif
@@ -63,7 +70,7 @@ void Mesh::initialize() {
         Eigen::Matrix<double, 2, 3> JInv;
         // this is the pinv
         JInv = (J.transpose() * J).inverse().eval() * J.transpose().eval();
-#ifdef DEBUG
+#ifdef DEBUG2
         double res = (JInv * J - Eigen::MatrixXd::Identity(2,2)).norm();
         if (res > 1e-8){
             std::cout << J << std::endl;
@@ -100,7 +107,7 @@ void Mesh::initialize() {
                 director /= director.norm();
                 
                 this->RotMat[i][j] = Eigen::AngleAxisd(angle,director);
-#ifdef DEBUG                
+               
                 double diff = (RotMat[i][j]*normal1 - normal2).norm();
                 if (diff > 1e-6){
 
@@ -111,14 +118,16 @@ void Mesh::initialize() {
                     std::cout << normal2 << std::endl;
                     std::cout << director << std::endl;  
                     Eigen::Matrix3d mat;
-                    mat << normal1, normal2, director;                     
+                    mat << normal1, normal2, director;  
+                    std::cout << "determinant should be positive" << std::endl;
                     std::cout << mat.determinant() << std::endl;
                     std::cout << angle << std::endl;
                     std::cout << RotMat[i][j] << std::endl;
-
-                    
+                    RotMat[i][j].transposeInPlace();
+                    diff = (RotMat[i][j]*normal1 - normal2).norm();
+                    std::cout << "transpose R to fix it" << std::endl;
+                    std::cout << diff << std::endl;
                 }
-#endif
                 this->localtransform_v2v[i][j] = this->Jacobian_g2l[TT(i,j)]*
                         RotMat[i][j]*this->Jacobian_l2g[i];
               
