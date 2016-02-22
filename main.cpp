@@ -8,10 +8,12 @@
 #include "igl/edge_flaps.h"
 #include "igl/edges.h"
 #include "igl/triangle_triangle_adjacency.h"
+#include "igl/boundary_facets.h"
+#include "igl/grad.h"
 #include "Mesh.h"
 #include "common.h"
 #include "model.h"
-#include "TransportPDESolver.h"
+#include "PDESolver.h"
 Parameter parameter;
 void readParameter();
 void testIO();
@@ -22,33 +24,37 @@ int main(int argc, char *argv[])
 {
 //    testIO();
 //    testMyMesh();
-//    testPDESolver();
-    testModel();
+    testPDESolver();
+//    testModel();
     return 0;
 }
 
 void testPDESolver(){
-    TransportPDESolver solver;
+    PDESolver solver;
+    readParameter();
     solver.mesh = std::make_shared<Mesh>();
-    solver.mesh->readMeshFile("shared/bumpy.off");
+    solver.mesh->readMeshFile(parameter.meshFile);
 //    solver.mesh->initialize();
     
     solver.initialize();
-    solver.solve();
-    
+//    solver.solveDiffusion();
+    solver.solvePoisson();
 }
 
 void testModel(){
     readParameter();
     Model m;
     m.mesh = std::make_shared<Mesh>();
-    m.mesh->readMeshFile("shared/sphere_scale30_dense.off");
+    m.mesh->readMeshFile(parameter.meshFile);
     m.mesh->initialize();
-    m.createInitialState();
-    m.MCRelaxation();
     
-    for (int i = 0; i < parameter.numStep; i++){
-        m.run();    
+    
+    for (int c_idx = 0; c_idx < parameter.nCycles; c_idx++){
+        m.createInitialState();
+        m.MCRelaxation();
+        for (int i = 0; i < parameter.numStep; i++){
+            m.run();    
+        }
     }
 
 }
@@ -75,7 +81,7 @@ void testIO() {
     Eigen::VectorXi EMap;
     std::vector<std::vector<int>> uE2E;
     // Load a mesh in OFF format
-    igl::readOFF("shared/cube_dense.off", V, F);
+    igl::readOFF("2dmesh/circle.off", V, F);
 
     // Print the vertices and faces matrices
     std::cout << "Vertices: " << std::endl << V << std::endl;
@@ -84,10 +90,11 @@ void testIO() {
     std::cout << "num of faces: " << F.rows() << std::endl;
 
     std::vector<std::vector<int> > adj_list;
-
+    // adjacency is used for obtain the adjacency relationship for vertices
     igl::adjacency_list(F, adj_list);
+
+    // E contains unordered directed edges    
     igl::all_edges(F, E);
-    // E contains unordered directed edges
     std::cout << "directed EDGES: " << E << std::endl;
     //   EMAP #F*3 list of indices into uE, mapping each directed edge to unique
     //     undirected edge
@@ -131,12 +138,42 @@ void testIO() {
 
         }
     }
-
+    // calculate normals of faces
     igl::per_face_normals(V, F, F_normals);
     std::cout << "Faces normals:    " << std::endl << F_normals << std::endl;
 
     // Save the mesh in OBJ format
     igl::writeOBJ("2triangles.obj", V, F);
+
+
+    // obtain the boundary edges/faces for triangles/tetrahedron
+     Eigen::MatrixXi bF;
+     igl::boundary_facets(F,bF);
+     std::cout << "boundary edge vertices: " << std::endl << bF << std::endl;
+    
+    // calculate the numerical gradient at every face of a triangle mesh
+    // G = grad(V,F,X)
+    //
+    // Compute the numerical gradient at every face of a triangle mesh.
+    //
+    // Inputs:
+    // V #vertices by 3 list of mesh vertex positions
+    // F #faces by 3 list of mesh face indices
+    // X # vertices list of scalar function values
+    // Outputs:
+    // G #faces by 3 list of gradient values
+     
+    Eigen::SparseMatrix<double> G;
+    igl::grad(V,F,G);
+//    std::cout << "gradient operator: " << std::endl << G << std::endl; 
+    // 
+    // Compute the numerical gradient operator 
+    // 
+    // Inputs: 
+    // V #vertices by 3 list of mesh vertex positions 
+    // F #faces by 3 list of mesh face indices 
+    // Outputs: 
+    // G #faces*dim by #V Gradient operator 
 
 
 }
@@ -182,10 +219,15 @@ void readParameter(){
     runfile >> parameter.seed;
     getline(runfile, line);
     getline(runfile, line);
+    runfile >> parameter.PDE_dt;
+    getline(runfile, line);
+    getline(runfile, line);
     runfile >> parameter.trajOutputInterval;
     getline(runfile, line);
     getline(runfile, line);
     getline(runfile, parameter.iniConfig);
     getline(runfile, line);
     getline(runfile, parameter.filetag);
+    getline(runfile, line);
+    getline(runfile, parameter.meshFile);
 }

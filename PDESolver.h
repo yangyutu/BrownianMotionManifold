@@ -18,11 +18,12 @@
 #include <iostream>
 #include <fstream>
 
-class TransportPDESolver{
+class PDESolver{
 public:
     enum SolverIntegralType{EulerExplicit=0,EulerImplicit=1};
-    TransportPDESolver(){}
-    void solve();
+    PDESolver(){}
+    void solveDiffusion();
+    void solvePoisson();
     void initialize();
     void readMeshFile();
     std::shared_ptr<Mesh> mesh;

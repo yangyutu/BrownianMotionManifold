@@ -11,7 +11,7 @@ CXXFLAGS=  -std=c++0x $(BOOST_INCLUDE) $(IGL_INCLUDE)  -D__LINUX
 
 LDFLAG=
 
-OBJ=main.o Mesh.o model.o TransportPDESolver.o
+OBJ=main.o Mesh.o model.o PDESolver.o
 all:test.exe 
 test.exe: $(OBJ)
 	$(CXX) -o $@ $^ $(LDFLAG) 
