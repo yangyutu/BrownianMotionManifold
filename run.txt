@@ -1,9 +1,9 @@
 N
-1
+50
 radius
 1e-6
 ncycles
-1000
+1
 num step
 10000
 dt
@@ -25,13 +25,13 @@ seed
 PDE_dt
 0.1
 trajOutputInterval
-1000
+100
 initial config
 config_sphereDense.txt
 file tag
-traj/traj_1p_
+traj_1p_
 meshfile name
-2dmesh/circle.off
+shared/sphere_scale30_dense.off
 
 
 

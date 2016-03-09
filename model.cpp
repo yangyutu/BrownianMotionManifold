@@ -1,12 +1,14 @@
 #include "model.h"
 //#include "CellList.h"
 #include "common.h"
-
+#include <omp.h>
 double const Model::T = 293.0;
 double const Model::kb = 1.38e-23;
 double const Model::vis = 1e-3;
 
 extern Parameter parameter;
+
+//#define OPENMP
 
 Model::Model(){
     rand_normal = std::make_shared<std::normal_distribution<double>>(0.0, 1.0);
@@ -31,6 +33,7 @@ Model::Model(){
     fileCounter = 0;
     cutoff = parameter.cutoff;
     this->rand_generator.seed(parameter.seed);
+    srand(parameter.seed);
 
     for(int i = 0; i < numP; i++){
         particles.push_back(particle_ptr(new Model::particle));
@@ -38,35 +41,118 @@ Model::Model(){
     
 }
 
+#ifndef OPENMP
 void Model::run() {
     if (this->timeCounter == 0 || ((this->timeCounter + 1) % trajOutputInterval == 0)) {
         this->outputTrajectory(this->trajOs);
     }
-
-    calForces();
-
- 
-        for (int i = 0; i < numP; i++) {
-            
+    Eigen::MatrixXd randomDispMat;
+    randomDispMat.setRandom(3,numP);
+    calForces(); 
+        for (int i = 0; i < numP; i++) {            
             Eigen::Vector3d velocity;
             for (int j = 0; j < 3; j++){
-//               velocity(j) = sqrt(2.0 * diffusivity_t/dt_) * (*rand_normal)(rand_generator);
-
-                velocity(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * (*rand_normal)(rand_generator);
-//                velocity(j) = 50.0 + 10*j;
-            }
-//            velocity << 50,50,-50;
-            
-            
+               velocity(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * randomDispMat(j,i);
+            }           
             this->moveOnMesh(i,velocity);
         }
     this->timeCounter++;
     
 }
+#else
+void Model::run() {
+    if (this->timeCounter == 0 || ((this->timeCounter + 1) % trajOutputInterval == 0)) {
+        this->outputTrajectory(this->trajOs);
+    }
+    
+    calForces();
+    Eigen::MatrixXd randomDispMat;
+    randomDispMat.setRandom(3,numP);
+//    omp_set_num_threads(1);
+#pragma omp parallel default(shared)
+{//    std::cout << omp_get_num_threads() << std::endl;
+#pragma omp for schedule(dynamic)
+    for (int i = 0; i < numP; i++) {            
+//            Eigen::Vector3d velocity;
+            for (int j = 0; j < 3; j++){
+//                particles[i]->F(j) = 0.0;
+                particles[i]->vel(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * randomDispMat(j,i);
+            }
+//            particles[i]->vel = velocity;
+            /* Obtain thread number */
+//            int tid = omp_get_thread_num();
+//            printf("Hello World from thread = %d\n", tid);
+//            std::cout << omp_get_num_threads() << std::endl;
+//            std::cout << numP << std::endl;
+//            std::cout << velocity << std::endl;
+//            this->moveOnMesh(i,velocity);
+        }
+
+}    
+    this->moveOnMesh_OMP();
+    this->timeCounter++;
+    
+}
+#endif
 
 void Model::run(int steps){
     for (int i = 0; i < steps; i++){
 	run();
+    }
+}
+
+
+void Model::moveOnMesh_OMP(){
+    
+#pragma omp parallel
+#pragma omp for schedule(dynamic)
+    for (int p_idx = 0; p_idx < numP; p_idx++) {
+        // first calculate the tangent velocity
+        Eigen::Vector3d velocity = particles[p_idx]->vel;
+        int meshIdx = this->particles[p_idx]->meshFaceIdx;
+        Eigen::Vector3d normal = mesh->F_normals.row(meshIdx).transpose();
+        Eigen::Vector3d tangentV = velocity - normal * (normal.dot(velocity));
+        // local velocity representation
+        Eigen::Vector2d localV = mesh->Jacobian_g2l[meshIdx] * tangentV;
+        Eigen::Vector2d localQ_new;
+        double t_residual = this->dt_;
+
+        bool finishWrapFlag = false;
+        double tol = 1e-8;
+        int hitFlag = -1;
+        int hitFlag_prev = -1;
+        localQ_new = particles[p_idx]->local_r + localV*t_residual;
+        int count = 0;
+        while (!finishWrapFlag) {
+            meshIdx = particles[p_idx]->meshFaceIdx;
+            if (localQ_new(0) < 0.0 && hitFlag_prev != 2) {
+                hitFlag = 2;
+                hitFlag_prev = mesh->TTi(meshIdx, 2);
+                //            std::cout << mesh->TTi.row(meshIdx) << std::endl;
+            } else if (localQ_new(1) < 0.0 && hitFlag_prev != 0) {
+                hitFlag = 0;
+                hitFlag_prev = mesh->TTi(meshIdx, 0);
+                //           std::cout << mesh->TTi.row(meshIdx) << std::endl;
+            } else if ((localQ_new(0) + localQ_new(1) > 1.0) && (hitFlag_prev != 1)) {
+                hitFlag = 1;
+                hitFlag_prev = mesh->TTi(meshIdx, 1);
+                //            std::cout << mesh->TTi << std::endl;
+                //            std::cout << mesh->TT << std::endl;
+            } else {
+                finishWrapFlag = true;
+                particles[p_idx]->local_r = localQ_new;
+                break;
+            }
+            count++;
+
+            if (count >= 10) {
+                std::cerr << "inner loop interaction too long  " << count << "\t" << localV << std::endl;
+            }
+            localQ_new = mesh->localtransform_p2p[meshIdx][hitFlag](localQ_new);
+            particles[p_idx]->meshFaceIdx = mesh->TT(meshIdx, hitFlag);
+
+        }
+        particles[p_idx]->r = mesh->coord_l2g[particles[p_idx]->meshFaceIdx](particles[p_idx]->local_r);
     }
 }
 
@@ -204,7 +290,11 @@ void Model::calForcesHelper(int i, int j, Eigen::Vector3d &F) {
     dist = r.norm();
             
     if (dist < 2.0) {
-        std::cerr << "overlap " << i << "\t" << j << "\t"<< this->timeCounter << "dist: " << dist <<std::endl;
+        std::cerr << "overlap " << i << "\t" << j << "\t"<< this->timeCounter << "dist: " << dist << "\t" << this->timeCounter <<std::endl;
+#ifdef OPENMP
+        std::cerr << "report from thread: " << omp_get_thread_num() << std::endl;
+        std::cerr << "number of threads: " << omp_get_num_threads() << std::endl; 
+#endif
         dist = 2.06;
     }
     if (dist < cutoff) {
@@ -220,11 +310,13 @@ void Model::calForcesHelper(int i, int j, Eigen::Vector3d &F) {
 }
 
 void Model::calForces() {
-    Eigen::Vector3d F;
+    
+    
+#ifndef OPENMP    
     for (int i = 0; i < numP; i++) {
         particles[i]->F.fill(0);
     }
-    
+    Eigen::Vector3d F;
     for (int i = 0; i < numP - 1; i++) {
         for (int j = i + 1; j < numP; j++) {
             calForcesHelper(i, j, F);
@@ -233,7 +325,30 @@ void Model::calForces() {
 
         }
     }
-        
+#else
+#pragma omp parallel 
+{
+#pragma omp for schedule(dynamic)
+    for (int i = 0; i < numP; i++) {
+        particles[i]->F.fill(0);
+    }
+
+#pragma omp barrier
+    
+#pragma omp for schedule(dynamic)    
+    for (int i = 0; i < numP; i++) {
+        for (int j = 0; j < numP; j++) {
+            if (i!=j){
+                Eigen::Vector3d F;
+                calForcesHelper(i, j, F);
+                particles[i]->F += F;
+            }
+        }
+    }
+    
+}    
+
+#endif
 }
     
 
@@ -297,25 +412,36 @@ void Model::readxyz(const std::string filename) {
 void Model::MCRelaxation(){
     
     bool notFinish = true;
-    
+    std::cout << "MC relaxation start!" << std::endl;
+    int count = 0;
     while (notFinish){
-
+        std::cout << "step: " << count++ << std::endl;
+        int overlapCount = 0;
     for (int i = 0; i < numP; i++){
+        
+        bool overlap_old = this->checkCloseness(i,2.5);
         Eigen::Vector3d velocity;
         velocity.setRandom(3,1);
-        velocity *= 0.01;
+        velocity *= 0.1/dt_;
         int oldMeshIdx = particles[i]->meshFaceIdx;
         Eigen::Vector2d localQ_old = particles[i]->local_r;
         this->moveOnMesh(i,velocity);
         
         bool overlap = this->checkCloseness(i,2.5);
-        notFinish = overlap;
-        if (overlap){
-            particles[i]->meshFaceIdx= oldMeshIdx;
-            particles[i]->local_r = localQ_old;
+        if(overlap_old){
+            overlapCount++;
+        }
+        if (!overlap_old){
+            if (overlap){
+                particles[i]->meshFaceIdx= oldMeshIdx;
+                particles[i]->local_r = localQ_old;
         
+            }
         }
     }
+        if(overlapCount == 0){
+            break;
+        }
     }
     std::cout << "MC relaxation finish!" << std::endl;
 }
@@ -326,6 +452,8 @@ bool Model::checkCloseness(int p_idx, double thresh){
             Eigen::Vector3d dist;
             dist = particles[p_idx]->r - particles[i]->r;
             if (dist.norm() < thresh){
+                std::cout << "overlap: " << i << "\t" << p_idx <<"\t" << dist.norm() << std::endl;
+                
                 return true;
             }
         

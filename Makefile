@@ -6,10 +6,10 @@ BOOST_INCLUDE=-I/opt/boost/boost_1_57_0
 IGL_INCLUDE=-I/$(HOME)Dropbox/workspace/libigl/include
 
 DEBUGFLAG=-DDEBUG -g3
-RELEASEFLAG= -O3 -march=native -DARMA_NO_DEBUG
-CXXFLAGS=  -std=c++0x $(BOOST_INCLUDE) $(IGL_INCLUDE)  -D__LINUX 
+RELEASEFLAG= -O3 -march=native -DARMA_NO_DEBUG 
+CXXFLAGS=  -std=c++0x $(BOOST_INCLUDE) $(IGL_INCLUDE)  -D__LINUX -fopenmp -DOPENMP
 
-LDFLAG=
+LDFLAG= -fopenmp -lpthread
 
 OBJ=main.o Mesh.o model.o PDESolver.o
 all:test.exe 

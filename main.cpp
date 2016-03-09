@@ -14,18 +14,24 @@
 #include "common.h"
 #include "model.h"
 #include "PDESolver.h"
+#include <omp.h>
+#include <cstdlib>
 Parameter parameter;
 void readParameter();
 void testIO();
 void testMyMesh();
 void testModel();
 void testPDESolver();
+void testOpenMP();
+void testModelOpenMP();
 int main(int argc, char *argv[])
 {
 //    testIO();
 //    testMyMesh();
-    testPDESolver();
+//    testPDESolver();
 //    testModel();
+//    testOpenMP();
+    testModelOpenMP();
     return 0;
 }
 
@@ -57,6 +63,34 @@ void testModel(){
         }
     }
 
+}
+
+
+void testModelOpenMP(){
+    readParameter();
+    Model m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter.meshFile);
+    m.mesh->initialize();
+    
+    parameter.nCycles = 1;
+    parameter.numStep = 100000;
+    omp_set_num_threads(4);
+    
+    for (int c_idx = 0; c_idx < parameter.nCycles; c_idx++){
+        m.createInitialState();
+//        m.MCRelaxation();
+        for (int i = 0; i < parameter.numStep; i++){
+            m.run();    
+        }
+    }
+
+    std::cout << "checking force " << std::endl;
+    for (int i = 0; i < parameter.N; i++){
+        std::cout << m.particles[i]->F << std::endl;
+    
+    }
+    
 }
 
 
@@ -230,4 +264,30 @@ void readParameter(){
     getline(runfile, parameter.filetag);
     getline(runfile, line);
     getline(runfile, parameter.meshFile);
+}
+
+void testOpenMP(){
+    omp_set_num_threads(8);
+  int nthreads, tid;
+
+/* Fork a team of threads giving them their own copies of variables */
+#pragma omp parallel private(nthreads, tid)
+  {
+
+  /* Obtain thread number */
+  tid = omp_get_thread_num();
+  printf("Hello World from thread = %d\n", tid);
+
+  /* Only master thread does this */
+  if (tid == 0) 
+    {
+    nthreads = omp_get_num_threads();
+    printf("Number of threads = %d\n", nthreads);
+    }
+
+  }  /* All threads join master thread and disband */
+  
+  
+  
+
 }

@@ -23,7 +23,7 @@ public:
     };
     
     struct particle {
-        Eigen::Vector3d r, F;
+        Eigen::Vector3d r, F, vel;
         Eigen::Vector2d local_r;
         int meshFaceIdx;
         
@@ -49,6 +49,7 @@ public:
     opOs.close(); osTarget.close();
     }
     void moveOnMesh(int p_idx, const Eigen::Vector3d &velocity);
+    void moveOnMesh_OMP();
     void MCRelaxation();
     bool checkCloseness(int p_idx,double thresh);
     void run();
@@ -60,6 +61,7 @@ public:
     double dt(){return dt_;}
     int np(){return numP;}
     std::shared_ptr<Mesh> mesh;
+    state particles, targets;
 private:
     void calForces();
     void calForcesHelper(int i, int j, Eigen::Vector3d &F);
@@ -74,7 +76,7 @@ private:
     double L_dep; // 0.2 of radius size, i.e. 200 nm
     double combinedSize;
     std::vector<double> velocity={0.0,2.0e-6,5.0e-6};
-    state particles, targets;
+    
     posArray obstacles; 
     std::vector<int> control;
     std::string iniFile;
