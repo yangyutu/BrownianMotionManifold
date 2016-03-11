@@ -26,6 +26,7 @@ public:
         Eigen::Vector3d r, F, vel;
         Eigen::Vector2d local_r;
         int meshFaceIdx;
+        bool free;
         
         particle(){}
         
@@ -51,7 +52,8 @@ public:
     void moveOnMesh(int p_idx, const Eigen::Vector3d &velocity);
     void moveOnMesh_OMP();
     void MCRelaxation();
-    bool checkCloseness(int p_idx,double thresh);
+    void generateConfig();
+    bool checkCloseness(int p_idx,double thresh,bool* accept);
     void run();
     void run(int steps);
     void createInitialState();

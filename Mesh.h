@@ -62,6 +62,7 @@ struct CoordOp_l2l {
 struct Mesh {
     int numV;
     int numF;
+    double area_total,area_avg;
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
     // face adj information

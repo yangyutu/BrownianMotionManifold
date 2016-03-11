@@ -1,5 +1,5 @@
 N
-50
+180
 radius
 1e-6
 ncycles
@@ -31,7 +31,7 @@ config_sphereDense.txt
 file tag
 traj_1p_
 meshfile name
-shared/sphere_scale30_dense.off
+shared/sphere_scale14.off
 
 
 

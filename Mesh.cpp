@@ -21,6 +21,10 @@ void Mesh::readMeshFile(std::string filename) {
     numV = V.rows();
     igl::doublearea(V,F,dblA);
     std::cout << "average double area " << dblA.mean() << std::endl;
+    std::cout << "total area " << dblA.sum() << std::endl;
+    area_total = dblA.sum();
+    area_avg = dblA.mean();
+    
 #ifdef DEBUG2
         std::cout << "vertices: " << V << std::endl;
         std::cout << "faces: " << F << std::endl;
@@ -112,21 +116,21 @@ void Mesh::initialize() {
                 if (diff > 1e-6){
 
                     
-                    std::cerr << "rotation matrix incorrect!" << diff << std::endl;
+//                    std::cerr << "rotation matrix incorrect!" << diff << std::endl;
                     
-                    std::cout << normal1 << std::endl;
-                    std::cout << normal2 << std::endl;
-                    std::cout << director << std::endl;  
+//                    std::cout << normal1 << std::endl;
+//                    std::cout << normal2 << std::endl;
+//                    std::cout << director << std::endl;  
                     Eigen::Matrix3d mat;
                     mat << normal1, normal2, director;  
-                    std::cout << "determinant should be positive" << std::endl;
-                    std::cout << mat.determinant() << std::endl;
-                    std::cout << angle << std::endl;
-                    std::cout << RotMat[i][j] << std::endl;
+//                    std::cout << "determinant should be positive" << std::endl;
+//                    std::cout << mat.determinant() << std::endl;
+//                    std::cout << angle << std::endl;
+//                    std::cout << RotMat[i][j] << std::endl;
                     RotMat[i][j].transposeInPlace();
                     diff = (RotMat[i][j]*normal1 - normal2).norm();
-                    std::cout << "transpose R to fix it" << std::endl;
-                    std::cout << diff << std::endl;
+//                    std::cout << "transpose R to fix it" << std::endl;
+//                    std::cout << diff << std::endl;
                 }
                 this->localtransform_v2v[i][j] = this->Jacobian_g2l[TT(i,j)]*
                         RotMat[i][j]*this->Jacobian_l2g[i];

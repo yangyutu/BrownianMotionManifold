@@ -2,6 +2,7 @@
 //#include "CellList.h"
 #include "common.h"
 #include <omp.h>
+#include <unordered_map>
 double const Model::T = 293.0;
 double const Model::kb = 1.38e-23;
 double const Model::vis = 1e-3;
@@ -85,11 +86,11 @@ void Model::run() {
 //            std::cout << omp_get_num_threads() << std::endl;
 //            std::cout << numP << std::endl;
 //            std::cout << velocity << std::endl;
-//            this->moveOnMesh(i,velocity);
+            this->moveOnMesh(i,particles[i]->vel);
         }
 
 }    
-    this->moveOnMesh_OMP();
+//    this->moveOnMesh_OMP();
     this->timeCounter++;
     
 }
@@ -409,36 +410,95 @@ void Model::readxyz(const std::string filename) {
     is.close();
 }
 
-void Model::MCRelaxation(){
+
+void Model::generateConfig(){
+    std::unordered_map<int,int> index_set;
+    int count = 0; 
+    // start generating initial config
+    if (numP > mesh->numF){
+        std::cerr << "generated N larger than Face number" << std::endl;
+        exit(2);
+    }
     
+    if (mesh->area_total / M_PI / 1.5 < numP){
+        std::cerr << "area too small" << std::endl;
+        exit(2);
+    
+    
+    }
+    
+    while(count < numP){
+        int idx = rand() % mesh->numF;
+        index_set[idx] = 1;
+        count = index_set.size();
+    }
+    auto map_it = index_set.begin();
+    for (int i = 0; i < numP; i++){
+        particles[i]->meshFaceIdx = map_it->first;
+        ++map_it;
+        particles[i]->local_r(0) = 0.25;
+        particles[i]->local_r(1) = 0.25;
+       
+        particles[i]->r = mesh->coord_l2g[particles[i]->meshFaceIdx](particles[i]->local_r);        
+    }
+    
+    this->MCRelaxation();
+     std::cout << "config generated!" << std::endl;
+     
+    std::ofstream os;
+    std::stringstream ss;
+    ss << numP;
+    os.open("generatedConfig_" + ss.str() + ".txt");
+    this->outputTrajectory(os);
+    os.close();
+    
+
+}
+
+void Model::MCRelaxation(){
+    bool accept;
     bool notFinish = true;
     std::cout << "MC relaxation start!" << std::endl;
     int count = 0;
+    double distCheck = 2.3;
     while (notFinish){
         std::cout << "step: " << count++ << std::endl;
         int overlapCount = 0;
+        
     for (int i = 0; i < numP; i++){
         
-        bool overlap_old = this->checkCloseness(i,2.5);
+        bool overlap_old = this->checkCloseness(i,distCheck, &accept);
+        // if not overlap with other particle, then it is free
+        particles[i]->free = !overlap_old;
         Eigen::Vector3d velocity;
         velocity.setRandom(3,1);
-        velocity *= 0.1/dt_;
+        velocity *= sqrt(mesh->area_avg)*0.25/dt_;
         int oldMeshIdx = particles[i]->meshFaceIdx;
         Eigen::Vector2d localQ_old = particles[i]->local_r;
+        Eigen::Vector3d r_old = particles[i]->r;
         this->moveOnMesh(i,velocity);
         
-        bool overlap = this->checkCloseness(i,2.5);
+        bool overlap = this->checkCloseness(i,distCheck,&accept);
         if(overlap_old){
             overlapCount++;
         }
-        if (!overlap_old){
-            if (overlap){
+//        if (!overlap_old){
+        
+        // if initially is free, but now is overlapping, back to original coor
+            if (particles[i]->free && overlap){
                 particles[i]->meshFaceIdx= oldMeshIdx;
                 particles[i]->local_r = localQ_old;
-        
+                particles[i]->r = r_old;
             }
-        }
+            if (!accept){
+            // if initillay is not free, but now is overlapping with other free particle,back to original coor    
+                particles[i]->meshFaceIdx= oldMeshIdx;
+                particles[i]->local_r = localQ_old;
+                particles[i]->r = r_old;
+            }
+//        }
     }
+        std::cout << "overlap count: " << overlapCount << std::endl;
         if(overlapCount == 0){
             break;
         }
@@ -446,18 +506,25 @@ void Model::MCRelaxation(){
     std::cout << "MC relaxation finish!" << std::endl;
 }
 
-bool Model::checkCloseness(int p_idx, double thresh){
+bool Model::checkCloseness(int p_idx, double thresh, bool *accept){
+    bool overlap = false;
+    *accept = true;
     for (int i = 0; i < numP; i++){
         if (i != p_idx){
             Eigen::Vector3d dist;
             dist = particles[p_idx]->r - particles[i]->r;
             if (dist.norm() < thresh){
-                std::cout << "overlap: " << i << "\t" << p_idx <<"\t" << dist.norm() << std::endl;
+//                std::cout << "overlap: " << i << "\t" << p_idx <<"\t" << dist.norm() << std::endl;
                 
-                return true;
+                if (particles[i]->free){
+                    *accept = false;
+                }
+                
+                
+                overlap = true;
             }
         
         }
     }
-    return false;
+    return overlap;
 }

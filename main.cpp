@@ -24,6 +24,7 @@ void testModel();
 void testPDESolver();
 void testOpenMP();
 void testModelOpenMP();
+void testConfigGeneration();
 int main(int argc, char *argv[])
 {
 //    testIO();
@@ -31,7 +32,8 @@ int main(int argc, char *argv[])
 //    testPDESolver();
 //    testModel();
 //    testOpenMP();
-    testModelOpenMP();
+//    testModelOpenMP();
+    testConfigGeneration();
     return 0;
 }
 
@@ -66,6 +68,19 @@ void testModel(){
 }
 
 
+void testConfigGeneration(){
+    readParameter();
+    Model m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter.meshFile);
+    m.mesh->initialize();
+    
+    m.generateConfig();
+    
+    
+
+
+}
 void testModelOpenMP(){
     readParameter();
     Model m;
@@ -79,7 +94,7 @@ void testModelOpenMP(){
     
     for (int c_idx = 0; c_idx < parameter.nCycles; c_idx++){
         m.createInitialState();
-//        m.MCRelaxation();
+        m.MCRelaxation();
         for (int i = 0; i < parameter.numStep; i++){
             m.run();    
         }
