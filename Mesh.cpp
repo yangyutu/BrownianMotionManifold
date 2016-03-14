@@ -12,7 +12,7 @@
 #include "igl/edges.h"
 #include "igl/triangle_triangle_adjacency.h"
 #include "Eigen/Geometry"
-
+#include <cmath>
 
 void Mesh::readMeshFile(std::string filename) {
     // Load a mesh in OFF format
@@ -106,8 +106,15 @@ void Mesh::initialize() {
                 Eigen::Vector3d director = Face_Edges[i].col(j).eval();
 //                Eigen::Vector3d director = Face_Edges[j].col(TTi(i,j));
                                 
-                double angle = acos(normal1.dot(normal2));
-   
+                double proj = normal1.dot(normal2);
+                double angle;
+                if (proj > 1){
+                    angle = M_PI/2.0;
+                } else if(proj < -1){
+                    angle = -M_PI/2.0;
+                } else {
+                    angle = acos(proj);
+                }
                 director /= director.norm();
                 
                 this->RotMat[i][j] = Eigen::AngleAxisd(angle,director);
@@ -135,6 +142,19 @@ void Mesh::initialize() {
                 this->localtransform_v2v[i][j] = this->Jacobian_g2l[TT(i,j)]*
                         RotMat[i][j]*this->Jacobian_l2g[i];
               
+                for (int iii=0;iii < 2; iii++){
+                    for (int jjj=0; jjj < 2; jjj++){
+                        if(std::isnan((localtransform_v2v[i][j])(iii,jjj))){
+                            std::cerr <<localtransform_v2v[i][j] << std::endl;
+                        std::cerr <<RotMat[i][j] << std::endl;
+                        std::cerr <<Jacobian_g2l[TT(i,j)] << std::endl;
+                        std::cerr <<Jacobian_l2g[i] << std::endl;
+                        }
+                    }
+                
+                }
+                
+                
                 this->localtransform_p2p[i][j] = CoordOp_l2l(bases[i],bases[TT(i,j)],
                         this->Jacobian_l2g[i],this->Jacobian_g2l[TT(i,j)]);
                 

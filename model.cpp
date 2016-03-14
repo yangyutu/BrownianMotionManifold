@@ -55,7 +55,7 @@ void Model::run() {
             for (int j = 0; j < 3; j++){
                velocity(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) * randomDispMat(j,i);
             }           
-            this->moveOnMesh(i,velocity);
+            this->moveOnMesh(i);
         }
     this->timeCounter++;
     
@@ -86,7 +86,7 @@ void Model::run() {
 //            std::cout << omp_get_num_threads() << std::endl;
 //            std::cout << numP << std::endl;
 //            std::cout << velocity << std::endl;
-            this->moveOnMesh(i,particles[i]->vel);
+            this->moveOnMesh(i);
         }
 
 }    
@@ -157,8 +157,9 @@ void Model::moveOnMesh_OMP(){
     }
 }
 
-void Model::moveOnMesh(int p_idx, const Eigen::Vector3d &velocity){
+void Model::moveOnMesh(int p_idx){
     // first calculate the tangent velocity
+    Eigen::Vector3d velocity = particles[p_idx]->vel;
     int meshIdx = this->particles[p_idx]->meshFaceIdx;
     Eigen::Vector3d normal = mesh->F_normals.row(meshIdx).transpose();
     Eigen::Vector3d tangentV = velocity - normal*(normal.dot(velocity));
@@ -420,12 +421,12 @@ void Model::generateConfig(){
         exit(2);
     }
     
-    if (mesh->area_total / M_PI / 1.5 < numP){
-        std::cerr << "area too small" << std::endl;
-        exit(2);
+//    if (mesh->area_total / M_PI / 1.5 < numP){
+//        std::cerr << "area too small" << std::endl;
+//        exit(2);
     
     
-    }
+//    }
     
     while(count < numP){
         int idx = rand() % mesh->numF;
@@ -460,7 +461,7 @@ void Model::MCRelaxation(){
     bool notFinish = true;
     std::cout << "MC relaxation start!" << std::endl;
     int count = 0;
-    double distCheck = 2.3;
+    double distCheck = 1;
     while (notFinish){
         std::cout << "step: " << count++ << std::endl;
         int overlapCount = 0;
@@ -471,12 +472,12 @@ void Model::MCRelaxation(){
         // if not overlap with other particle, then it is free
         particles[i]->free = !overlap_old;
         Eigen::Vector3d velocity;
-        velocity.setRandom(3,1);
-        velocity *= sqrt(mesh->area_avg)*0.25/dt_;
+        particles[i]->vel.setRandom(3,1);
+        particles[i]->vel *= sqrt(mesh->area_avg)*0.25/dt_;
         int oldMeshIdx = particles[i]->meshFaceIdx;
         Eigen::Vector2d localQ_old = particles[i]->local_r;
         Eigen::Vector3d r_old = particles[i]->r;
-        this->moveOnMesh(i,velocity);
+        this->moveOnMesh(i);
         
         bool overlap = this->checkCloseness(i,distCheck,&accept);
         if(overlap_old){

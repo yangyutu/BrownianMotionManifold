@@ -14,6 +14,12 @@ struct Parameter {
 
 
 
+struct Parameter_cell:public Parameter {
+    double tau,sigma,V_a,V_r,D0,beta;
+    
+};
+
+
 class CoorPair {
 public:
     int x;

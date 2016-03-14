@@ -46,27 +46,27 @@ public:
     typedef std::vector<std::shared_ptr<pos>> posArray;
    
     Model();
-    ~Model() {trajOs.close();
+    virtual ~Model() {trajOs.close();
     opOs.close(); osTarget.close();
     }
-    void moveOnMesh(int p_idx, const Eigen::Vector3d &velocity);
+    virtual void moveOnMesh(int p_idx);
     void moveOnMesh_OMP();
     void MCRelaxation();
     void generateConfig();
     bool checkCloseness(int p_idx,double thresh,bool* accept);
-    void run();
-    void run(int steps);
-    void createInitialState();
-    state getCurrState(){return particles;}
+    virtual void run();
+    virtual void run(int steps);
+    virtual void createInitialState();
+    virtual state getCurrState(){return particles;}
     int getDimP(){return dimP;}
     
     double dt(){return dt_;}
     int np(){return numP;}
     std::shared_ptr<Mesh> mesh;
-    state particles, targets;
-private:
-    void calForces();
-    void calForcesHelper(int i, int j, Eigen::Vector3d &F);
+    state particles;
+protected:
+    virtual void calForces();
+    virtual void calForcesHelper(int i, int j, Eigen::Vector3d &F);
     int dimP;
     static const double kb, T, vis;
     int numP, numObstacles;
@@ -89,7 +89,7 @@ private:
     int timeCounter,fileCounter;
     std::ofstream trajOs, opOs, osTarget;
     std::string filetag;
-    void outputTrajectory(std::ostream& os);
+    virtual void outputTrajectory(std::ostream& os);
     void readxyz(const std::string filename);
     
 };

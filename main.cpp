@@ -13,14 +13,18 @@
 #include "Mesh.h"
 #include "common.h"
 #include "model.h"
+#include "Model_cell.h"
 #include "PDESolver.h"
 #include <omp.h>
 #include <cstdlib>
 Parameter parameter;
+Parameter_cell parameter_cell;
 void readParameter();
+void readParameter_cell();
 void testIO();
 void testMyMesh();
 void testModel();
+void testModel_cell();
 void testPDESolver();
 void testOpenMP();
 void testModelOpenMP();
@@ -31,9 +35,10 @@ int main(int argc, char *argv[])
 //    testMyMesh();
 //    testPDESolver();
 //    testModel();
+    testModel_cell();
 //    testOpenMP();
 //    testModelOpenMP();
-    testConfigGeneration();
+//    testConfigGeneration();
     return 0;
 }
 
@@ -67,6 +72,24 @@ void testModel(){
 
 }
 
+
+void testModel_cell(){
+    readParameter_cell();
+    Model_cell m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter_cell.meshFile);
+    m.mesh->initialize();
+    
+    
+    for (int c_idx = 0; c_idx < parameter_cell.nCycles; c_idx++){
+        m.createInitialState();
+        m.MCRelaxation();
+        for (int i = 0; i < parameter_cell.numStep; i++){
+            m.run();    
+        }
+    }
+
+}
 
 void testConfigGeneration(){
     readParameter();
@@ -279,6 +302,55 @@ void readParameter(){
     getline(runfile, parameter.filetag);
     getline(runfile, line);
     getline(runfile, parameter.meshFile);
+}
+
+
+void readParameter_cell(){
+    std::string line;
+    std::ifstream runfile;
+    runfile.open("run_cell.txt");
+    getline(runfile, line);
+    runfile >> parameter_cell.N;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.nCycles;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.numStep;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.dt;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.tau;    
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.sigma;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.V_a;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.V_r;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.beta;   
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.cutoff;   
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.seed;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter_cell.trajOutputInterval;
+    getline(runfile, line);
+    getline(runfile, line);
+    getline(runfile, parameter_cell.iniConfig);
+    getline(runfile, line);
+    getline(runfile, parameter_cell.filetag);
+    getline(runfile, line);
+    getline(runfile, parameter_cell.meshFile);
 }
 
 void testOpenMP(){
