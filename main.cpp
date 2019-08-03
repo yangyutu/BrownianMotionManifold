@@ -19,43 +19,86 @@
 #include <cstdlib>
 Parameter parameter;
 Parameter_cell parameter_cell;
-void readParameter();
+void readParameter(bool flag);
 void readParameter_cell();
 void testIO();
 void testMyMesh();
 void testModel();
+void testDiffusionStat(int step);
+void testMultiPModel();
 void testModel_cell();
 void testPDESolver();
 void testOpenMP();
 void testModelOpenMP();
 void testConfigGeneration();
+
+void testModel_cell_on2d();
+
+
 int main(int argc, char *argv[])
 {
+    
+    testModel();
+    if (argc <= 1) 
+    {
+        std::cout << "no argument" << std::endl;
+        exit(1);
+    }
+    
+    
+    
+    std::string option = std::string(argv[1]);
+    
+    std::cout << "option is: " << option << std::endl;
+    if (option.compare("singleP") == 0){
+        testModel();
+    } else if (option.compare("multiP") == 0) {
+        testMultiPModel();
+    } else if (option.compare("PDESolver") == 0) {
+        testPDESolver();
+    } else if (option.compare("Diffusion") == 0) {
+        int steps = strtol(argv[2], nullptr, 0);
+        testDiffusionStat(steps);
+    } else {
+        std::cout << "option unknown! " << option << std::endl;
+    }
+    
+    
+    
 //    testIO();
 //    testMyMesh();
 //    testPDESolver();
-//    testModel();
-    testModel_cell();
+    
+//    testModel_cell_on2d();
 //    testOpenMP();
 //    testModelOpenMP();
 //    testConfigGeneration();
     return 0;
 }
 
+void testDiffusionStat(int step){
+    readParameter(false);
+    Model m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter.meshFile);
+    m.mesh->initialize();
+    m.diffusionStat(step);
+}
+
 void testPDESolver(){
     PDESolver solver;
-    readParameter();
+    readParameter(false);
     solver.mesh = std::make_shared<Mesh>();
     solver.mesh->readMeshFile(parameter.meshFile);
 //    solver.mesh->initialize();
     
     solver.initialize();
-//    solver.solveDiffusion();
-    solver.solvePoisson();
+    solver.solveDiffusion();
+//    solver.solvePoisson();
 }
 
 void testModel(){
-    readParameter();
+    readParameter(false);
     Model m;
     m.mesh = std::make_shared<Mesh>();
     m.mesh->readMeshFile(parameter.meshFile);
@@ -64,7 +107,7 @@ void testModel(){
     
     for (int c_idx = 0; c_idx < parameter.nCycles; c_idx++){
         m.createInitialState();
-        m.MCRelaxation();
+//        m.MCRelaxation();
         for (int i = 0; i < parameter.numStep; i++){
             m.run();    
         }
@@ -72,6 +115,33 @@ void testModel(){
 
 }
 
+void testMultiPModel(){
+    readParameter(true);
+    
+    
+    Model m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter.meshFile);
+    m.mesh->initialize();
+    
+    
+    for (int c_idx = 0; c_idx < parameter.nCycles; c_idx++){
+        m.createInitialState();
+//        m.MCRelaxation();
+        for (int i = 0; i < parameter.numStep; i++){
+            m.run();    
+        }
+    }
+
+
+
+}
+
+void testModel_cell_on2d(){
+    readParameter_cell();
+    Model_cell m;
+    m.testOn2d();
+}
 
 void testModel_cell(){
     readParameter_cell();
@@ -92,7 +162,7 @@ void testModel_cell(){
 }
 
 void testConfigGeneration(){
-    readParameter();
+    readParameter(false);
     Model m;
     m.mesh = std::make_shared<Mesh>();
     m.mesh->readMeshFile(parameter.meshFile);
@@ -105,7 +175,7 @@ void testConfigGeneration(){
 
 }
 void testModelOpenMP(){
-    readParameter();
+    readParameter(false);
     Model m;
     m.mesh = std::make_shared<Mesh>();
     m.mesh->readMeshFile(parameter.meshFile);
@@ -250,7 +320,7 @@ void testIO() {
 
 }
 
-void readParameter(){
+void readParameter( bool multipFlag){
     std::string line;
     std::ifstream runfile;
     runfile.open("run.txt");
@@ -291,7 +361,7 @@ void readParameter(){
     runfile >> parameter.seed;
     getline(runfile, line);
     getline(runfile, line);
-    runfile >> parameter.PDE_dt;
+    runfile >> parameter.PDE_dt >> parameter.PDE_nstep;
     getline(runfile, line);
     getline(runfile, line);
     runfile >> parameter.trajOutputInterval;
@@ -302,6 +372,11 @@ void readParameter(){
     getline(runfile, parameter.filetag);
     getline(runfile, line);
     getline(runfile, parameter.meshFile);
+    if (multipFlag) {
+        getline(runfile, line);
+        runfile >> parameter.fieldStrength;
+    }
+    
 }
 
 

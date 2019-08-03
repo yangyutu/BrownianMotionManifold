@@ -66,14 +66,14 @@ void Mesh::initialize() {
 
     // build local global local transformations
     for (int i = 0; i < F.rows(); i++) {
-        Eigen::Vector3d p10 = (V.row(F(i, 1)) - V.row(F(i, 0))).transpose().eval();
-        Eigen::Vector3d p20 = (V.row(F(i, 2)) - V.row(F(i, 0))).transpose().eval();
+        Eigen::Vector3d p10 = (V.row(F(i, 1)) - V.row(F(i, 0))).transpose().eval(); // p1 - p0 (3d)
+        Eigen::Vector3d p20 = (V.row(F(i, 2)) - V.row(F(i, 0))).transpose().eval(); // p2 - p0 (3d)
         Eigen::Matrix<double, 3, 2> J;
         J << p10, p20;
         this->Jacobian_l2g.push_back(J);
         Eigen::Matrix<double, 2, 3> JInv;
         // this is the pinv
-        JInv = (J.transpose() * J).inverse().eval() * J.transpose().eval();
+        JInv = (J.transpose() * J).inverse().eval() * J.transpose().eval(); // J^{-1} = (J^TJ)^{-1} J^T
 #ifdef DEBUG2
         double res = (JInv * J - Eigen::MatrixXd::Identity(2,2)).norm();
         if (res > 1e-8){
@@ -90,9 +90,27 @@ void Mesh::initialize() {
     }
     
  
-    //  construct neighboring faces for each faces in the order    
+    //  construct neighboring faces for each faces in the order    (https://github.com/libigl/libigl/blob/master/include/igl/triangle_triangle_adjacency.h)
+      // Constructs the triangle-triangle adjacency matrix for a given
+  // mesh (V,F).
+  //
+  // Inputs:
+  //   F  #F by simplex_size list of mesh faces (must be triangles)
+  // Outputs:
+  //   TT   #F by #3 adjacent matrix, the element i,j is the id of the triangle
+  //        adjacent to the j edge of triangle i
+  //   TTi  #F by #3 adjacent matrix, the element i,j is the id of edge of the
+  //        triangle TT(i,j) that is adjacent with triangle i
+  //
+  // NOTE: the first edge of a triangle is [0,1] the second [1,2] and the third
+  //       [2,3].  this convention is DIFFERENT from cotmatrix_entries.h
     igl::triangle_triangle_adjacency(F, TT, TTi);
-    //  now calculating the rotation matrix between faces
+    //  now calculating the rotation matrix between faces, because local to local transformation requires rotation matrix
+    //  the transformation of local velocity to another local velocity has the following procedures
+    //  first convert a local tangent velocity to its global one (i.e. the lab frame)
+    //  
+    //  then project this global velocity to the tangent plane of the new surface ()
+    //  convert the now tangent velocity to its local version
 #if 1
     for (int i = 0; i < numF; i++){
         RotMat.push_back(std::vector<Eigen::Matrix3d>(3,Eigen::MatrixXd::Identity(3,3)));

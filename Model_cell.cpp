@@ -62,10 +62,59 @@ void Model_cell::run() {
 //            exit(1);
 //        }
 //        }
-
-        this->moveOnMesh(i);
+        if (!testOn2dFlag){
+            this->moveOnMesh(i);
+        } else{
+            this->moveOn2d(i);
+        }
     }
     this->timeCounter++;
+}
+
+
+void Model_cell::moveOn2d(int j){
+
+    particles[j]->r += particles[j]->vel * dt_;
+    particles[j]->r(2) = 0.0;
+    if (periodicFlag){
+        for (int i = 0; i < 2; i++){
+            particles[j]->r(i) -= round(particles[j]->r(i)/box(i))*box(i);
+        }
+    }
+}
+
+void Model_cell::testOn2d(){
+    std::ifstream is;
+    is.open("2dconfig.txt");
+    double dum;
+    for (int i = 0; i < numP; i++){
+        is >> dum;
+        is >> particles[i]->r[0];
+        is >> particles[i]->r[1];
+        is >> particles[i]->r[2];
+    }
+    
+    box(0) = 15;
+    box(1) = 13.5;
+    box(2) = 15;
+
+    std::stringstream ss;
+    std::cout << "model initialize at round " << fileCounter << std::endl;
+    ss << this->fileCounter++;
+    if (trajOs.is_open()) trajOs.close();
+//    if (opOs.is_open()) opOs.close();
+
+    this->trajOs.open(filetag + "xyz_" + ss.str() + ".txt");
+//    this->opOs.open(filetag + "op" + ss.str() + ".txt");
+    this->timeCounter = 0;
+
+    periodicFlag = 1;
+    testOn2dFlag = 1;
+    for(int i = 0; i < parameter_cell.numStep; i++){
+        this->run();
+    }
+
+
 }
 
 void Model_cell::calForcesHelper(int i, int j, Eigen::Vector3d &F, Eigen::Vector3d &inhib) {
@@ -76,6 +125,13 @@ void Model_cell::calForcesHelper(int i, int j, Eigen::Vector3d &F, Eigen::Vector
     F.fill(0);
     inhib.fill(0);
     r = particles[j]->r - particles[i]->r;
+    
+    if (periodicFlag){
+        for (int k = 0; k < 2; k++){
+            r(k) -= round(r(k)/box(k))*box(k);
+        }
+    }
+    
     dist = r.norm();
     double Fpp;
 
@@ -197,6 +253,13 @@ void Model_cell::buildNbList(){
         for (int j=i+1;j<numP;j++){
         dist = 0.0;
         r = particles[j]->r - particles[i]->r;
+        
+        
+        if (periodicFlag){
+            for (int i = 0; i < 2; i++){
+                r(i) -= round(r(i)/box(i))*box(i);
+            }
+        }
         dist = r.norm();
     
         if (dist < 2.0*D0 ) {
@@ -219,7 +282,7 @@ void Model_cell::outputTrajectory(std::ostream& os) {
             os << particles[i]->local_r[j] << "\t";
         }
         os << particles[i]->meshFaceIdx << "\t";
-        particles[i]->r = mesh->coord_l2g[particles[i]->meshFaceIdx](particles[i]->local_r); 
+       // particles[i]->r = mesh->coord_l2g[particles[i]->meshFaceIdx](particles[i]->local_r); 
         for (int j = 0; j < 3; j++){
             os << particles[i]->r(j) << "\t";
         }

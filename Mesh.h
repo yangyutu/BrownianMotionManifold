@@ -2,6 +2,13 @@
 #include<Eigen/Dense>
 #include<iostream>
 #include<string>
+#include<vector>
+
+/*
+Coordinate transformation operator: local (2d) to global (3d)
+
+Initialize the operator with one base vector (3d) and one Jacobian (3 by 2) cooresponding to the mesh triangle
+*/
 
 struct CoordOp_l2g {
     Eigen::Vector3d base;
@@ -20,6 +27,14 @@ struct CoordOp_l2g {
     }
 };
 
+/*
+Coordinate transformation operator: global (3d) to local (2d)
+
+Initialize the operator with one base vector (3d) and one Inverse Jacobian (2 by 3) cooresponding to the mesh triangle 
+
+Note that from global to local will lose information if the global vector is not 
+*/
+
 struct CoordOp_g2l {
     Eigen::Vector3d base;
     Eigen::Matrix<double, 2, 3> JacobianInv;
@@ -36,6 +51,14 @@ struct CoordOp_g2l {
         return JacobianInv * (q - base);
     }
 };
+
+/*
+Coordinate transformation operator: local (2d) to local (2d)
+
+Initialize the operator with two base vectors (3d) and Jacobians cooresponding to the two mesh triangles 
+
+The operator will take one local coordinate (2d) and output another local coordinate (2d)
+*/
 
 struct CoordOp_l2l {
     Eigen::Vector3d base1;
@@ -59,6 +82,29 @@ struct CoordOp_l2l {
     }
 };
 
+
+/*
+Mesh class
+A mesh is a collection of triangles. 
+The mesh class contains the following information:
+1) a vector of vertices 
+2) a vector of normal vectors on the faces
+3) a vector of coordinate transformation operators, including local to global, global to local
+
+4) a vector of face adjacency information. Each face is guaranteed to have 3 neighbors.
+5) a vector of inverse face adjacency information
+
+6) Edge face information and convention
+
+                 **
+                 * *
+     f:1, edge 1 *  *  f: 2, edge: 1
+                 *   *
+                 ******
+                 f:0, edge:2
+*/
+
+
 struct Mesh {
     int numV;
     int numF;
@@ -74,8 +120,6 @@ struct Mesh {
 
     std::vector<Eigen::Matrix3d> Face_Edges;
 
-
-
     // each face should have its transformation matrix between local chart of R^3
     std::vector<CoordOp_g2l> coord_g2l;
     std::vector<CoordOp_l2g> coord_l2g;
@@ -84,7 +128,7 @@ struct Mesh {
     
     std::vector<std::vector<Eigen::Matrix2d>> localtransform_v2v;
     
-    
+    // Jacobians and their inverse, used for speed transformation
     std::vector<Eigen::Matrix<double, 3, 2 >> Jacobian_l2g;
     std::vector<Eigen::Matrix<double, 2, 3 >> Jacobian_g2l;
     std::vector<Eigen::Vector3d> bases;
@@ -95,4 +139,3 @@ struct Mesh {
     bool inTriangle(Eigen::Vector2d q);
 
 };
-

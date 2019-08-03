@@ -11,7 +11,9 @@ extern Parameter parameter;
 
 void PDESolver::initialize(){
     Prob.setZero(mesh->V.rows(),1);
-    Prob(0) = 10;
+    Prob(mesh->F(311,0)) = 1.0/3;
+    Prob(mesh->F(311,1)) = 1.0/3;
+    Prob(mesh->F(311,2)) = 1.0/3;
     // we can show that Laplacian for genus 0 mesh is symmetric, Mass is diagonal
     igl::cotmatrix(mesh->V,mesh->F,Laplacian);
     igl::massmatrix(mesh->V,mesh->F,igl::MASSMATRIX_TYPE_BARYCENTRIC,Mass);
@@ -118,10 +120,34 @@ void PDESolver::solveDiffusion(){
     
     this->solverIntegralType = EulerImplicit;
     nStep = parameter.PDE_nstep;
-    dt_ = parameter.PDE_dt;
+    dt_ = parameter.PDE_dt * (parameter.diffu_t/pow(parameter.radius,2));
     std::ofstream os;
     std::cout << "Solver begin" << std::endl;
     for (int s = 0; s < nStep; s++){
+        if (s == 0 || (s)%1 == 0){
+              // Compute pseudocolor
+            Eigen::MatrixXd C;
+            Eigen::VectorXd FC;
+            FC.setZero(mesh->F.rows());
+            igl::jet(Prob,true,C);
+            Eigen::MatrixXd output;
+//            output << Prob;
+            std::stringstream ss;
+            ss << s;
+            os.open("prob_solution"+ss.str()+".dat");
+            os << Prob;
+            os.close();
+            for (int i = 0; i < mesh->F.rows();i++){
+                FC(i) = Prob(mesh->F(i,0))+  Prob(mesh->F(i,1)) + Prob(mesh->F(i,2));
+            }
+            FC /= 3.0;
+            
+            os.open("prob_solution_face"+ss.str()+".dat");
+            os << FC;
+            os.close();
+        }       
+        
+        
         if (solverIntegralType == EulerExplicit){
         // mass matrix is "supposed" to be a diagnoal matrix    
             Prob += dt_ * (Mass.diagonal().inverse()*Laplacian*Prob);
@@ -134,28 +160,7 @@ void PDESolver::solveDiffusion(){
     
         }
         
-        if (s == 0 || (s+1)%10 == 0){
-              // Compute pseudocolor
-            Eigen::MatrixXd C;
-            Eigen::MatrixXd FC;
-            FC.setZero(mesh->F.rows(),3);
-            igl::jet(Prob,true,C);
-            Eigen::MatrixXd output;
-//            output << Prob;
-            std::stringstream ss;
-            ss << s;
-            os.open("prob_solution"+ss.str()+".dat");
-            os << Prob;
-            os.close();
-            for (int i = 0; i < mesh->F.rows();i++){
-                FC.row(i) = C.row(mesh->F(i,0))+  C.row(mesh->F(i,1)) + C.row(mesh->F(i,2));
-            }
-            FC /= 3.0;
-            
-            os.open("prob_color"+ss.str()+".dat");
-            os << FC;
-            os.close();
-        }
+
     }
 
 }

@@ -28,7 +28,11 @@ public:
         int meshFaceIdx;
         bool free;
         
-        particle(){}
+        particle(){
+            r.fill(0);
+            local_r.fill(0);
+            meshFaceIdx = 0;
+        }
         
         particle(double x, double y, double z, int idx){
             r(0)=x;r(1)=y;r(2)=z;
@@ -50,8 +54,10 @@ public:
     opOs.close(); osTarget.close();
     }
     virtual void moveOnMesh(int p_idx);
+    virtual void moveOnMeshV2(int p_idx);
     void moveOnMesh_OMP();
     void MCRelaxation();
+    void diffusionStat(int steps);
     void generateConfig();
     bool checkCloseness(int p_idx,double thresh,bool* accept);
     virtual void run();

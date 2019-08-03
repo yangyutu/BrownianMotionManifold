@@ -8,7 +8,7 @@ struct Parameter {
     std::string iniConfig, filetag;
     int seed, PDE_nstep;
     std::string meshFile;
-    
+    double fieldStrength;
     double PDE_dt;
 };
 
