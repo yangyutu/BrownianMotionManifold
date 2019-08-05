@@ -23,15 +23,20 @@ kappa
 seed
 4
 PDE_dt
-0.01 20
+0.1 20
 trajOutputInterval
-5000
+100
 initial config
-sphericalsurface/config_sphereIcosahedron1500MeshLab.txt
+torus/diffusion/config.txt
 file tag
-sphericalsurface/traj4/traj_1p_
+torus/diffusion/traj_1p_
 meshfile name
-sphericalsurface/sphereIcosahedron12000MeshLab.off
+torus/torusTwenty.off
+
+
+
+
+
 
 
 

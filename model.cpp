@@ -47,20 +47,15 @@ void Model::run() {
     if (this->timeCounter == 0 || ((this->timeCounter + 1) % trajOutputInterval == 0)) {
         this->outputTrajectory(this->trajOs);
     }
- //   Eigen::MatrixXd randomDispMat;
- //   randomDispMat.setRandom(3,numP);
-    calForces(); 
- //   std::cout << particles[0]->meshFaceIdx << "\t" <<mesh->TT.row(particles[0]->meshFaceIdx) << std::endl;
- //   std::cout << randomDispMat << std::endl;
-        for (int i = 0; i < numP; i++) {            
 
-            for (int j = 0; j < 3; j++){
-               particles[i]->vel(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) *(*rand_normal)(rand_generator);;
-            }           
-            this->moveOnMeshV2(i);
- //           particles[i]->r += particles[i]->vel * dt_;
- //           particles[i]->r(2) = 0.0;
-        }
+    calForces(); 
+    for (int i = 0; i < numP; i++) {            
+
+        for (int j = 0; j < 3; j++){
+           particles[i]->vel(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) *(*rand_normal)(rand_generator);;
+        }           
+        this->moveOnMeshV2(i);
+    }
     this->timeCounter++;
     
 }
@@ -121,7 +116,6 @@ void Model::diffusionStat(int steps){
                 std::cout << particles[i]->local_r[j] << "\t";
             }
             std::cout << particles[i]->meshFaceIdx << "\t";
-    //        particles[i]->r = mesh->coord_l2g[particles[i]->meshFaceIdx](particles[i]->local_r); 
             for (int j = 0; j < 3; j++){
                 std::cout << particles[i]->r(j) << "\t";
             }
@@ -138,9 +132,9 @@ void Model::diffusionStat(int steps){
            for (int i = 0; i < numP; i++) {            
 
                 for (int j = 0; j < 3; j++){
-                    particles[i]->vel(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) *(*rand_normal)(rand_generator);;
+                    particles[i]->vel(j) = diffusivity_t * particles[i]->F(j) + sqrt(2.0 * diffusivity_t/dt_) *(*rand_normal)(rand_generator);
             }           
-            this->moveOnMesh(i);    
+            this->moveOnMeshV2(i);    
         }
         
        
@@ -260,6 +254,139 @@ void Model::moveOnMesh(int p_idx){
     particles[p_idx]->r = mesh->coord_l2g[particles[p_idx]->meshFaceIdx](particles[p_idx]->local_r);;
 }  
 
+void Model::moveOnMeshV3(int p_idx){
+    // first calculate the tangent velocity
+    Eigen::Vector3d velocity = particles[p_idx]->vel;
+    int meshIdx = this->particles[p_idx]->meshFaceIdx;
+    Eigen::Vector3d normal = mesh->F_normals.row(meshIdx).transpose();
+    Eigen::Vector3d tangentV = velocity - normal*(normal.dot(velocity));
+    // local velocity representation
+    Eigen::Vector2d localV = mesh->Jacobian_g2l[meshIdx]*tangentV;
+    Eigen::Vector2d localQ_new;
+    double hitTime, hitIndex;
+    double t_residual = this->dt_;
+    // need to do wraping do ensure new particle position is finally lying on a surface
+    while(t_residual > 1e-8){
+        // move with local tangent speed
+        localQ_new = particles[p_idx]->local_r + localV * t_residual;
+        if (mesh->inTriangle(localQ_new)){
+            t_residual = 0.0;
+            // to avoid tiny negative number
+            localQ_new(0) = abs(localQ_new(0));
+            localQ_new(1) = abs(localQ_new(1));
+            particles[p_idx]->local_r = localQ_new;
+            break;
+        } else {
+            // if localQ_new(0) + localQ_new(1) > 1.0, then must hit edge 1
+            // if localQ_new(0) < 0 and localQ_new(1) > 0, then must hit edge 2
+            // if localQ_new(0) > 0 and localQ_new(1) < 0, then must hit edge 0
+            // if localQ_new(0) < 0 and localQ_new(1) < 0, then we might hit edge 0 and 2
+            // if localQ_new(0) > 1.0 and localQ_new(1
+            Eigen::Vector3d t_hit;
+            if ((localQ_new(0) + localQ_new(1) > 1.0) and localQ_new(0) > 0.0 and localQ_new(1) > 0.0) {
+                hitTime = (1 - particles[p_idx]->local_r.sum()) / localV.sum();
+                hitIndex = 1;
+            } else if (localQ_new(0) < 0.0 and localQ_new(1) > 0.0) {
+                hitTime = -particles[p_idx]->local_r(0) / localV(0);
+                hitIndex = 2;
+            } else if (localQ_new(1) < 0.0 and localQ_new(0) > 0.0) {
+                hitTime = -particles[p_idx]->local_r(1) / localV(1);
+                hitIndex = 0;
+            } else if (localQ_new(1) < 0.0 and localQ_new(0) < 0.0) {
+                t_hit(2) = -particles[p_idx]->local_r(0) / localV(0); // this second edge
+                t_hit(0) = -particles[p_idx]->local_r(1) / localV(1); // the zero edge
+                if (t_hit(0) < t_hit(2)){
+                    hitTime = t_hit(0);
+                    hitIndex = 0;
+                } else {
+                    hitTime = t_hit(2);
+                    hitIndex = 2;
+                }
+            }
+            
+            
+            t_residual -= hitTime;
+
+            // here update the local coordinate
+            particles[p_idx]->local_r += localV * hitTime;
+            // here is the correction step to make simulation stable
+            if( hitIndex == 0){
+                // hit the first edge
+                particles[p_idx]->local_r(1) = 0.0;                
+            } else if( hitIndex == 1){
+                // hit the second edge, local_r(0) + local_r(1) = 1.0
+                particles[p_idx]->local_r(0) = 1.0 - particles[p_idx]->local_r(1);
+            } else if (hitIndex == 2){
+                // hit the third edge
+                particles[p_idx]->local_r(0) = 0.0;
+            }
+            
+            int meshIdx = particles[p_idx]->meshFaceIdx;
+
+
+
+#ifdef DEBUG
+            
+            int reverseIdx = mesh->TTi(meshIdx, hitIndex);
+            Eigen::Vector2d newV = mesh->localtransform_v2v[meshIdx][hitIndex]*localV;
+            Eigen::Vector2d oldV = mesh->localtransform_v2v[mesh->TT(meshIdx,hitIndex)][reverseIdx]*newV;
+            
+            double diff1 = (localV - oldV).norm();
+            
+            //Eigen::Vector2d newr = mesh->localtransform_p2p[meshIdx][min_idx](particles[p_idx]->local_r);
+            //Eigen::Vector2d oldr = mesh->localtransform_p2p[mesh->TT(meshIdx,min_idx)][reverseIdx](newr);
+            
+            //double diff2 = (oldr - particles[p_idx]->local_r).norm();
+            
+            if (diff1 > 1e-6) {
+                std::cerr << this->timeCounter << " speed transformation error!" << std::endl;
+            }
+            
+            //if (diff2 > 1e-6) {
+            //    std::cerr << "position transformation error!" << std::endl;
+            //}
+            
+            
+            
+#endif   
+            // transform to the local tangent speed in the new plane
+            localV = mesh->localtransform_v2v[meshIdx][hitIndex]*localV;
+
+            // transform to local coordinate in the new plane
+            // because the local coordinate is on the edge of the old plane; it also must be in the edge of new plane
+            
+            particles[p_idx]->local_r = mesh->localtransform_p2p[meshIdx][hitIndex](particles[p_idx]->local_r);
+            if (abs(particles[p_idx]->local_r(0)) < 1e-8) {
+                particles[p_idx]->local_r(0) = 2e-8;
+            }
+            if (abs(particles[p_idx]->local_r(1)) < 1e-8) {
+                particles[p_idx]->local_r(1) = 2e-8;
+            }
+#ifdef DEBUG
+            
+            if (!mesh->inTriangle(particles[p_idx]->local_r)){
+                std::cerr << this->timeCounter << " not in triangle!" << std::endl;
+                std::cout <<  particles[p_idx]->local_r << std::endl;
+            }
+#endif      //      
+            // particles[p_idx]->meshFaceIdx = mesh->TT(meshIdx,min_idx);
+           }   
+    }
+    
+    if (abs(particles[p_idx]->local_r(0)) < 1e-8) {
+        particles[p_idx]->local_r(0) = 2e-8;
+    }
+    if (abs(particles[p_idx]->local_r(1)) < 1e-8) {
+        particles[p_idx]->local_r(1) = 2e-8;
+    }
+
+    if (!mesh->inTriangle(particles[p_idx]->local_r)){
+        std::cerr << this->timeCounter << " not in triangle!" << std::endl;
+        std::cout <<  particles[p_idx]->local_r << std::endl;
+    }
+    
+}
+
 
 void Model::moveOnMeshV2(int p_idx){
     // first calculate the tangent velocity
@@ -272,15 +399,32 @@ void Model::moveOnMeshV2(int p_idx){
     Eigen::Vector2d localQ_new;
     
     double t_residual = this->dt_;
+    // the while loop will start with particle lying on the surface
     // need to do wraping do ensure new particle position is finally lying on a surface
-    while(t_residual > 0.0){
+    
+    if (!mesh->inTriangle(particles[p_idx]->local_r)){
+        std::cerr << this->timeCounter << " not in triangle before the loop!" << std::endl;
+        std::cout <<  particles[p_idx]->local_r << std::endl;
+    }
+    double positionPrecision = 1e-8;
+    
+    while(t_residual > 1e-8){
         // move with local tangent speed
         localQ_new = particles[p_idx]->local_r + localV * t_residual;
         if (mesh->inTriangle(localQ_new)){
             t_residual = 0.0;
+            // to avoid tiny negative number
+            localQ_new(0) = abs(localQ_new(0));
+            localQ_new(1) = abs(localQ_new(1));
             particles[p_idx]->local_r = localQ_new;
             break;
         } else {
+            // if localQ_new(0) + localQ_new(1) > 1.0, then must hit edge 1
+            // if localQ_new(0) < 0 and localQ_new(1) > 0, then must hit edge 2
+            // if localQ_new(0) > 0 and localQ_new(1) < 0, then must hit edge 0
+            // if localQ_new(0) < 0 and localQ_new(1) < 0, then we might hit edge 0 and 2
+            
+            
             // as long as the velocity vector is not parallel to the three edges, there will a collision
             Eigen::Vector3d t_hit;
             // t_hit will be negative if it move away from the edge
@@ -292,7 +436,7 @@ void Model::moveOnMeshV2(int p_idx){
             int min_idx = -1;
             // the least positive t_hit will hit
             for (int i = 0; i < 3; i++){
-                if (t_hit(i) > 0.0 && t_hit(i) <= t_min){
+                if (t_hit(i) > 1e-12 && t_hit(i) <= t_min){
                     t_min = t_hit(i);
                     min_idx = i;
                 }            
@@ -305,7 +449,7 @@ void Model::moveOnMeshV2(int p_idx){
                 std::cout <<  particles[p_idx]->local_r << std::endl;
                 std::cout << localQ_new << std::endl;
                 std::cout << localV << std::endl;
-                exit(2);
+                
                 break;
             }
             
@@ -326,7 +470,7 @@ void Model::moveOnMeshV2(int p_idx){
             }
             
             int meshIdx = particles[p_idx]->meshFaceIdx;
-
+            int newMeshIdx = mesh->TT(meshIdx, min_idx);
 
 
 #ifdef DEBUG
@@ -337,20 +481,11 @@ void Model::moveOnMeshV2(int p_idx){
             
             double diff1 = (localV - oldV).norm();
             
-            //Eigen::Vector2d newr = mesh->localtransform_p2p[meshIdx][min_idx](particles[p_idx]->local_r);
-            //Eigen::Vector2d oldr = mesh->localtransform_p2p[mesh->TT(meshIdx,min_idx)][reverseIdx](newr);
-            
-            //double diff2 = (oldr - particles[p_idx]->local_r).norm();
-            
+          
             if (diff1 > 1e-6) {
-                std::cerr << "speed transformation error!" << std::endl;
+                std::cerr << this->timeCounter << " speed transformation error! " << diff1 << std::endl;
             }
-            
-            //if (diff2 > 1e-6) {
-            //    std::cerr << "position transformation error!" << std::endl;
-            //}
-            
-            
+           
             
 #endif   
             // transform to the local tangent speed in the new plane
@@ -360,15 +495,38 @@ void Model::moveOnMeshV2(int p_idx){
             // because the local coordinate is on the edge of the old plane; it also must be in the edge of new plane
             
             particles[p_idx]->local_r = mesh->localtransform_p2p[meshIdx][min_idx](particles[p_idx]->local_r);
-#ifdef DEBUG
-            //if (!mesh->inTriangle(particles[p_idx]->local_r)){
-//          //      std::cerr << "not in triangle! " << std::endl;
+            particles[p_idx]->meshFaceIdx = newMeshIdx;
+            
+            
+            if (abs(particles[p_idx]->local_r(0)) < positionPrecision) {
+                particles[p_idx]->local_r(0) = 2 * positionPrecision;
+            } else if (abs(particles[p_idx]->local_r(1)) < positionPrecision) {
+                particles[p_idx]->local_r(1) = 2 * positionPrecision;
+            } else if (abs((1 - particles[p_idx]->local_r.sum())) < positionPrecision){
+                particles[p_idx]->local_r(1) = 1.0 - positionPrecision - particles[p_idx]->local_r(0);
+                particles[p_idx]->local_r(0) = 1.0 - positionPrecision - particles[p_idx]->local_r(1);
+                
+            } else {
+                std::cerr << this->timeCounter << " not in triangle after wrapping!" << std::endl;
+                std::cout <<  particles[p_idx]->local_r << std::endl;
             }
-#endif      //      
-            // particles[p_idx]->meshFaceIdx = mesh->TT(meshIdx,min_idx);
-           //}   
+#ifdef DEBUG
+            if (!mesh->inTriangle(particles[p_idx]->local_r)){
+                std::cerr << "not in triangleafter wrapping and adjustment " << std::endl;
+            }
+#endif            
+
+        }
+
     }
 
+
+
+    if (!mesh->inTriangle(particles[p_idx]->local_r)){
+        std::cerr << this->timeCounter << " not in triangle after the loop!" << std::endl;
+        std::cout <<  particles[p_idx]->local_r << std::endl;
+    }
+    particles[p_idx]->r = mesh->coord_l2g[particles[p_idx]->meshFaceIdx](particles[p_idx]->local_r);;
 }
 
 /*    
@@ -491,7 +649,12 @@ void Model::calForces() {
             particles[j]->F -= F;
 
         }
+               
     }
+    for (int i = 0; i < numP; i++) {
+        particles[i]->F(2) -= parameter.fieldStrength;
+    }
+    
 #else
 #pragma omp parallel 
 {
@@ -533,6 +696,7 @@ void Model::createInitialState(){
 //    this->opOs.open(filetag + "op" + ss.str() + ".txt");
     this->timeCounter = 0;
 
+              
 }
 
 void Model::outputTrajectory(std::ostream& os) {
@@ -574,6 +738,22 @@ void Model::readxyz(const std::string filename) {
     }
     
     is.close();
+    
+    // make sure that the initial configuration is not overlapped    
+    
+    for (int i = 0; i < numP - 1; i++){
+        for (int j = i + 1; j < numP; j++){
+            Eigen::Vector3d dist;
+            dist = particles[i]->r - particles[j]->r;
+            
+            if (dist.norm() < parameter.cutoff) {
+                std::cerr << "initial configuration too close!" << std::endl;
+                
+            }
+            
+        }
+    }
+    
 }
 
 
@@ -631,39 +811,39 @@ void Model::MCRelaxation(){
         std::cout << "step: " << count++ << std::endl;
         int overlapCount = 0;
         
-    for (int i = 0; i < numP; i++){
-        
-        bool overlap_old = this->checkCloseness(i,distCheck, &accept);
-        // if not overlap with other particle, then it is free
-        particles[i]->free = !overlap_old;
-        Eigen::Vector3d velocity;
-        particles[i]->vel.setRandom(3,1);
-        particles[i]->vel *= sqrt(mesh->area_avg)*0.25/dt_;
-        int oldMeshIdx = particles[i]->meshFaceIdx;
-        Eigen::Vector2d localQ_old = particles[i]->local_r;
-        Eigen::Vector3d r_old = particles[i]->r;
-        this->moveOnMesh(i);
-        
-        bool overlap = this->checkCloseness(i,distCheck,&accept);
-        if(overlap_old){
-            overlapCount++;
+        for (int i = 0; i < numP; i++){
+
+            bool overlap_old = this->checkCloseness(i,distCheck, &accept);
+            // if not overlap with other particle, then it is free
+            particles[i]->free = !overlap_old;
+            Eigen::Vector3d velocity;
+            particles[i]->vel.setRandom(3,1);
+            particles[i]->vel *= sqrt(mesh->area_avg)*0.25/dt_;
+            int oldMeshIdx = particles[i]->meshFaceIdx;
+            Eigen::Vector2d localQ_old = particles[i]->local_r;
+            Eigen::Vector3d r_old = particles[i]->r;
+            this->moveOnMesh(i);
+
+            bool overlap = this->checkCloseness(i,distCheck,&accept);
+            if(overlap_old){
+                overlapCount++;
+            }
+    //        if (!overlap_old){
+
+            // if initially is free, but now is overlapping, back to original coor
+                if (particles[i]->free && overlap){
+                    particles[i]->meshFaceIdx= oldMeshIdx;
+                    particles[i]->local_r = localQ_old;
+                    particles[i]->r = r_old;
+                }
+                if (!accept){
+                // if initillay is not free, but now is overlapping with other free particle,back to original coor    
+                    particles[i]->meshFaceIdx= oldMeshIdx;
+                    particles[i]->local_r = localQ_old;
+                    particles[i]->r = r_old;
+                }
+    //        }
         }
-//        if (!overlap_old){
-        
-        // if initially is free, but now is overlapping, back to original coor
-            if (particles[i]->free && overlap){
-                particles[i]->meshFaceIdx= oldMeshIdx;
-                particles[i]->local_r = localQ_old;
-                particles[i]->r = r_old;
-            }
-            if (!accept){
-            // if initillay is not free, but now is overlapping with other free particle,back to original coor    
-                particles[i]->meshFaceIdx= oldMeshIdx;
-                particles[i]->local_r = localQ_old;
-                particles[i]->r = r_old;
-            }
-//        }
-    }
         std::cout << "overlap count: " << overlapCount << std::endl;
         if(overlapCount == 0){
             break;

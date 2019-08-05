@@ -55,6 +55,7 @@ public:
     }
     virtual void moveOnMesh(int p_idx);
     virtual void moveOnMeshV2(int p_idx);
+    virtual void moveOnMeshV3(int p_idx);
     void moveOnMesh_OMP();
     void MCRelaxation();
     void diffusionStat(int steps);

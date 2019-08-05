@@ -10,6 +10,8 @@ struct Parameter {
     std::string meshFile;
     double fieldStrength;
     double PDE_dt;
+    int externalForce;
+    double externalFz;
 };
 
 

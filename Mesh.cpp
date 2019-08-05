@@ -16,6 +16,7 @@
 
 void Mesh::readMeshFile(std::string filename) {
     // Load a mesh in OFF format
+    std::cout << "read mesh file:" << filename << std::endl; 
     igl::readOFF(filename, V, F);
     numF = F.rows();
     numV = V.rows();
@@ -127,9 +128,9 @@ void Mesh::initialize() {
                 double proj = normal1.dot(normal2);
                 double angle;
                 if (proj > 1){
-                    angle = M_PI/2.0;
+                    angle = 0.0;
                 } else if(proj < -1){
-                    angle = -M_PI/2.0;
+                    angle = -M_PI;
                 } else {
                     angle = acos(proj);
                 }
@@ -138,6 +139,7 @@ void Mesh::initialize() {
                 this->RotMat[i][j] = Eigen::AngleAxisd(angle,director);
                
                 double diff = (RotMat[i][j]*normal1 - normal2).norm();
+                double diff3 = (RotMat[i][j]*normal2 - normal1).norm();
                 if (diff > 1e-6){
 
                     
@@ -152,9 +154,18 @@ void Mesh::initialize() {
 //                    std::cout << mat.determinant() << std::endl;
 //                    std::cout << angle << std::endl;
 //                    std::cout << RotMat[i][j] << std::endl;
+                    
+                    // here we try to transpose to fix it because we rotate in the opposite direction!
                     RotMat[i][j].transposeInPlace();
-                    diff = (RotMat[i][j]*normal1 - normal2).norm();
-//                    std::cout << "transpose R to fix it" << std::endl;
+                    double diff2 = (RotMat[i][j]*normal1 - normal2).norm();
+                    
+                    if (diff2 > 1e-6) {
+                        std::cerr << "transpose R to fix it! but failed:" << diff2 << std::endl;
+                    } else{
+                        //std::cout << "transpose R to fix it" << std::endl;
+                    }
+                    //double diff = (RotMat[i][j]*normal1 - normal2).norm();
+//                    
 //                    std::cout << diff << std::endl;
                 }
                 this->localtransform_v2v[i][j] = this->Jacobian_g2l[TT(i,j)]*

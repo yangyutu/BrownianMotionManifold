@@ -5,7 +5,7 @@ HOME=/home/yangyutu/
 IGL_INCLUDE=-I./libigl/include
 
 DEBUGFLAG=-DDEBUG -g3
-RELEASEFLAG= -O3 -march=native -DARMA_NO_DEBUG 
+RELEASEFLAG= -O3 
 CXXFLAGS=  -std=c++0x $(BOOST_INCLUDE) $(IGL_INCLUDE)  -D__LINUX -fopenmp #-DOPENMP
 
 LDFLAG= -fopenmp -lpthread

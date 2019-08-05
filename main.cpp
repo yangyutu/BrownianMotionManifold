@@ -21,6 +21,7 @@ Parameter parameter;
 Parameter_cell parameter_cell;
 void readParameter(bool flag);
 void readParameter_cell();
+void readParameterExternalForce();
 void testIO();
 void testMyMesh();
 void testModel();
@@ -37,31 +38,31 @@ void testModel_cell_on2d();
 
 int main(int argc, char *argv[])
 {
-    
-    testModel();
-    if (argc <= 1) 
-    {
-        std::cout << "no argument" << std::endl;
-        exit(1);
-    }
-    
-    
-    
-    std::string option = std::string(argv[1]);
-    
-    std::cout << "option is: " << option << std::endl;
-    if (option.compare("singleP") == 0){
-        testModel();
-    } else if (option.compare("multiP") == 0) {
-        testMultiPModel();
-    } else if (option.compare("PDESolver") == 0) {
-        testPDESolver();
-    } else if (option.compare("Diffusion") == 0) {
-        int steps = strtol(argv[2], nullptr, 0);
-        testDiffusionStat(steps);
-    } else {
-        std::cout << "option unknown! " << option << std::endl;
-    }
+    testMultiPModel();
+////    testModel();
+//    if (argc <= 1) 
+//    {
+//        std::cout << "no argument" << std::endl;
+//        exit(1);
+//    }
+//    
+//    
+//    
+//    std::string option = std::string(argv[1]);
+//    
+//    std::cout << "option is: " << option << std::endl;
+//    if (option.compare("singleP") == 0){
+//        testModel();
+//    } else if (option.compare("multiP") == 0) {
+//        testMultiPModel();
+//    } else if (option.compare("PDESolver") == 0) {
+//        testPDESolver();
+//    } else if (option.compare("Diffusion") == 0) {
+//        int steps = strtol(argv[2], nullptr, 0);
+//        testDiffusionStat(steps);
+//    } else {
+//        std::cout << "option unknown! " << option << std::endl;
+//    }
     
     
     
@@ -116,7 +117,7 @@ void testModel(){
 }
 
 void testMultiPModel(){
-    readParameter(true);
+    readParameterExternalForce();
     
     
     Model m;
@@ -320,6 +321,63 @@ void testIO() {
 
 }
 
+void readParameterExternalForce(){
+    std::string line;
+    std::ifstream runfile;
+    runfile.open("run_multiP.txt");
+    getline(runfile, line);
+    runfile >> parameter.N;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.radius;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.nCycles;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.numStep;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.dt;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.diffu_t;    
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.Bpp;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.Os_pressure;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.L_dep;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.cutoff;   
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.kappa;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.seed;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.PDE_dt >> parameter.PDE_nstep;
+    getline(runfile, line);
+    getline(runfile, line);
+    runfile >> parameter.trajOutputInterval;
+    getline(runfile, line);
+    getline(runfile, line);
+    getline(runfile, parameter.iniConfig);
+    getline(runfile, line);
+    getline(runfile, parameter.filetag);
+    getline(runfile, line);
+    getline(runfile, parameter.meshFile);
+    getline(runfile, line);
+    runfile >> parameter.fieldStrength;
+    
+}
+
 void readParameter( bool multipFlag){
     std::string line;
     std::ifstream runfile;
@@ -372,6 +430,7 @@ void readParameter( bool multipFlag){
     getline(runfile, parameter.filetag);
     getline(runfile, line);
     getline(runfile, parameter.meshFile);
+    parameter.fieldStrength = 0.0;
     if (multipFlag) {
         getline(runfile, line);
         runfile >> parameter.fieldStrength;
