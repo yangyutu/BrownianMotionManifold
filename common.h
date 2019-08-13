@@ -12,6 +12,7 @@ struct Parameter {
     double PDE_dt;
     int externalForce;
     double externalFz;
+    bool randomMoveFlag{true};
 };
 
 

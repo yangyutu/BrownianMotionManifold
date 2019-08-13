@@ -34,35 +34,39 @@ void testModelOpenMP();
 void testConfigGeneration();
 
 void testModel_cell_on2d();
-
+void testMoveOnSphere();
 
 int main(int argc, char *argv[])
 {
-    testMultiPModel();
+//    testMoveOnSphere();
+//    testMultiPModel();
 ////    testModel();
-//    if (argc <= 1) 
-//    {
-//        std::cout << "no argument" << std::endl;
-//        exit(1);
-//    }
-//    
-//    
-//    
-//    std::string option = std::string(argv[1]);
-//    
-//    std::cout << "option is: " << option << std::endl;
-//    if (option.compare("singleP") == 0){
-//        testModel();
-//    } else if (option.compare("multiP") == 0) {
-//        testMultiPModel();
-//    } else if (option.compare("PDESolver") == 0) {
-//        testPDESolver();
-//    } else if (option.compare("Diffusion") == 0) {
-//        int steps = strtol(argv[2], nullptr, 0);
-//        testDiffusionStat(steps);
-//    } else {
-//        std::cout << "option unknown! " << option << std::endl;
-//    }
+    if (argc <= 1) 
+    {
+        std::cout << "no argument" << std::endl;
+        exit(1);
+    }
+    
+    
+   
+    std::string option = std::string(argv[1]);
+    
+    std::cout << "option is: " << option << std::endl;
+    if (option.compare("singleP") == 0){
+        testModel();
+    } else if (option.compare("multiP") == 0) {
+        testMultiPModel();
+    } else if (option.compare("PDESolver") == 0) {
+        testPDESolver();
+    } else if (option.compare("Diffusion") == 0) {
+        int steps = strtol(argv[2], nullptr, 0);
+        testDiffusionStat(steps);
+    } else if (option.compare("SphereMove") == 0) {
+        testMoveOnSphere();
+    }
+    else {
+        std::cout << "option unknown! " << option << std::endl;
+    }
     
     
     
@@ -113,6 +117,16 @@ void testModel(){
             m.run();    
         }
     }
+
+}
+
+void testMoveOnSphere(){
+    readParameter(false);
+    Model m;
+    m.mesh = std::make_shared<Mesh>();
+    m.mesh->readMeshFile(parameter.meshFile);
+    m.mesh->initialize();
+    m.testMoveOnSphere();
 
 }
 

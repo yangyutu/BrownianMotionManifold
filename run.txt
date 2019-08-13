@@ -25,18 +25,13 @@ seed
 PDE_dt
 0.1 20
 trajOutputInterval
-100
+1
 initial config
-torus/diffusion/config.txt
+2dsurfaceData/config.txt
 file tag
-torus/diffusion/traj_1p_
+traj_1p_
 meshfile name
-torus/torusTwenty.off
-
-
-
-
-
+2dsurfaceData/2dsurface.off
 
 
 

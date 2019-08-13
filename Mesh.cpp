@@ -112,7 +112,7 @@ void Mesh::initialize() {
     //  
     //  then project this global velocity to the tangent plane of the new surface ()
     //  convert the now tangent velocity to its local version
-#if 1
+
     for (int i = 0; i < numF; i++){
         RotMat.push_back(std::vector<Eigen::Matrix3d>(3,Eigen::MatrixXd::Identity(3,3)));
         this->localtransform_v2v.push_back(std::vector<Eigen::Matrix2d>(3,Eigen::Matrix2d()));
@@ -192,7 +192,7 @@ void Mesh::initialize() {
     }
  
     
-#endif 
+
 }
 
 bool Mesh::inTriangle(Eigen::Vector2d q){

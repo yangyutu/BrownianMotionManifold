@@ -53,14 +53,14 @@ public:
     virtual ~Model() {trajOs.close();
     opOs.close(); osTarget.close();
     }
-    virtual void moveOnMesh(int p_idx);
+
     virtual void moveOnMeshV2(int p_idx);
-    virtual void moveOnMeshV3(int p_idx);
-    void moveOnMesh_OMP();
+
     void MCRelaxation();
     void diffusionStat(int steps);
     void generateConfig();
     bool checkCloseness(int p_idx,double thresh,bool* accept);
+    void testMoveOnSphere();
     virtual void run();
     virtual void run(int steps);
     virtual void createInitialState();

@@ -19,7 +19,7 @@ test_static: $(OBJ)
 	$(CXX) -o $@ $^ -static $(LDFLAG) -lgomp -lm -ldl 
 	
 %.o:%.cpp
-	$(CXX) -c $(CXXFLAGS) $(DEBUGFLAG) $^
+	$(CXX) -c $(CXXFLAGS) $(RELEASEFLAG) $^
 	
 
 
