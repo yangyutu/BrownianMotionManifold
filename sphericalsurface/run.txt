@@ -1,0 +1,37 @@
+N
+1
+radius
+1e-6
+ncycles
+1
+num step
+10000
+dt
+0.0001
+diffu_t
+2.145e-13
+Bpp
+2.29
+Os_pressure
+5.8e-8
+L_dep
+0.2
+cutoff
+2.5
+kappa
+50
+seed
+4
+PDE_dt
+0.01 20
+trajOutputInterval
+1
+initial config
+sphericalsurface/config_sphereIcosahedron1500MeshLab2.txt
+file tag
+sphericalsurface/traj5/traj_1p_
+meshfile name
+sphericalsurface/sphereIcosahedron12000MeshLab.off
+
+
+
