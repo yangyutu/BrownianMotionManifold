@@ -5,9 +5,9 @@ radius
 ncycles
 1
 num step
-10000
+1000000000
 dt
-0.0001
+0.01
 diffu_t
 2.145e-13
 Bpp
@@ -21,17 +21,17 @@ cutoff
 kappa
 50
 seed
-4
+5
 PDE_dt
 0.1 20
 trajOutputInterval
-1
+1000
 initial config
-2dsurfaceData/config.txt
+knot/Diffusion/config.txt
 file tag
-traj_1p_
+knot/MSD/traj_1p_MSDLong
 meshfile name
-2dsurfaceData/2dsurface.off
+knot/knotTen.off
 
 
 

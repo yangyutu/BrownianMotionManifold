@@ -38,19 +38,19 @@ public:
 
 };
 
-typedef struct {
+struct CoorPairHash {
 
     std::size_t operator()(const CoorPair & CP) const {
         std::size_t h1 = std::hash<int>()(CP.x);
         std::size_t h2 = std::hash<int>()(CP.y);
         return h1^(h2 << 1);
     }
-} CoorPairHash;
+};
 
-typedef struct {
+struct CoorPairEqual {
 
     bool operator()(const CoorPair & CP1, const CoorPair & CP2) const {
         return (CP1.x == CP2.x)&&(CP1.y == CP2.y);
     }
-} CoorPairEqual;
+};
 

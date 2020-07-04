@@ -91,8 +91,8 @@ void Mesh::initialize() {
     }
     
  
-    //  construct neighboring faces for each faces in the order    (https://github.com/libigl/libigl/blob/master/include/igl/triangle_triangle_adjacency.h)
-      // Constructs the triangle-triangle adjacency matrix for a given
+  //  construct neighboring faces for each faces in the order    (https://github.com/libigl/libigl/blob/master/include/igl/triangle_triangle_adjacency.h)
+  // Constructs the triangle-triangle adjacency matrix for a given
   // mesh (V,F).
   //
   // Inputs:
@@ -106,10 +106,10 @@ void Mesh::initialize() {
   // NOTE: the first edge of a triangle is [0,1] the second [1,2] and the third
   //       [2,3].  this convention is DIFFERENT from cotmatrix_entries.h
     igl::triangle_triangle_adjacency(F, TT, TTi);
+
     //  now calculating the rotation matrix between faces, because local to local transformation requires rotation matrix
     //  the transformation of local velocity to another local velocity has the following procedures
     //  first convert a local tangent velocity to its global one (i.e. the lab frame)
-    //  
     //  then project this global velocity to the tangent plane of the new surface ()
     //  convert the now tangent velocity to its local version
 
@@ -140,6 +140,8 @@ void Mesh::initialize() {
                
                 double diff = (RotMat[i][j]*normal1 - normal2).norm();
                 double diff3 = (RotMat[i][j]*normal2 - normal1).norm();
+
+                // here is sanity check, after the transformation, diff should be zero.
                 if (diff > 1e-6){
 
                     
@@ -196,12 +198,9 @@ void Mesh::initialize() {
 }
 
 bool Mesh::inTriangle(Eigen::Vector2d q){
-    if (q(0) >=0 && q(0) <= 1&&q(1) >=0 && q(1) <= 1 && (q(0)+q(1)) <=1 ){
+    if (q(0) >= 0 && q(0) <= 1 && q(1) >= 0 && q(1) <= 1 && (q(0)+q(1)) <=1 ){
         return true;
     }
-//        if (abs(q(0)) >=tol && abs(q(0)-1.0) >= tol && abs(q(1)) <=tol
-//            && abs(q(1)-1) <= tol && abs(q(0)+q(1)-1) <=tol ){
-//        return true;
-//    }
+
     return false;
 }

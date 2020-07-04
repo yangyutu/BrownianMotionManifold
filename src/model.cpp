@@ -154,7 +154,7 @@ void Model::moveOnMeshV2(int p_idx){
             // if localQ_new(0) < 0 and localQ_new(1) < 0, then we might hit edge 0 and 2
             
             
-            // as long as the velocity vector is not parallel to the three edges, there will a collision
+            // as long as the velocity vector is not parallel to the three edges, there will be a collision
             Eigen::Vector3d t_hit;
             // t_hit will be negative if it move away from the edge
             t_hit(2) = -particles[p_idx]->local_r(0) / localV(0); // this second edge
